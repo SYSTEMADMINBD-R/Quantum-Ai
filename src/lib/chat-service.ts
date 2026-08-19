@@ -102,7 +102,7 @@ async function* streamGroq(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: chatMessages,
       temperature: 0.7,
       max_tokens: 8192,
@@ -222,7 +222,7 @@ export async function sendMessage(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [
           { role: "system", content: systemPrompt },
           ...conversationHistory.map((msg) => ({
