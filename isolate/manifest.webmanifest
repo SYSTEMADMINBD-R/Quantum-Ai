@@ -1,13 +1,13 @@
 {
   "name": "Quantum AI",
   "short_name": "Quantum AI",
-  "description": "AI assistant with offline support, dual modes (General + Hacking), powered by Gemini and Groq",
+  "description": "Offline-ready AI assistant for developers and security professionals. Powered by Gemini and Groq.",
   "start_url": "/app",
   "display": "standalone",
-  "background_color": "#0d1117",
+  "background_color": "#0f1219",
   "theme_color": "#06b6d4",
   "orientation": "any",
-  "categories": ["productivity", "utilities"],
+  "categories": ["productivity", "developer", "utilities"],
   "icons": [
     {
       "src": "/logo.svg",
