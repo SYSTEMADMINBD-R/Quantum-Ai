@@ -86,7 +86,7 @@ export default function ChatApp() {
         <OfflineIndicator />
 
         {/* Header */}
-        <header className="flex items-center justify-between px-4 py-2.5 border-b border-border/30 bg-background/80 backdrop-blur-md">
+        <header className="flex items-center justify-between px-4 py-2 border-b border-border/30 bg-background/80 backdrop-blur-md">
           <div className="flex items-center gap-3">
             {sidebarCollapsed && (
               <Button
@@ -100,9 +100,9 @@ export default function ChatApp() {
             )}
             <ModeSwitcher />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {!isOnline && (
-              <div className="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full">
+              <div className="flex items-center gap-1.5 text-[10px] text-amber-400/80 bg-amber-500/8 px-2 py-1 rounded-md">
                 <WifiOff className="h-3 w-3" />
                 Offline
               </div>
@@ -126,9 +126,9 @@ export default function ChatApp() {
               {/* Streaming indicator */}
               {isStreaming &&
                 messages[messages.length - 1]?.role !== "assistant" && (
-                  <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Thinking...</span>
+                  <div className="flex items-center gap-2 px-4 py-3 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Generating response…</span>
                   </div>
                 )}
 
@@ -142,7 +142,7 @@ export default function ChatApp() {
         {/* Input Area */}
         <div className="border-t border-border/30 bg-background/80 backdrop-blur-md p-3">
           <div className="max-w-3xl mx-auto">
-            <div className="relative flex items-end gap-2 rounded-2xl border border-border/50 bg-muted/30 p-2 focus-within:border-primary/50 transition-colors">
+            <div className="relative flex items-end gap-2 rounded-xl border border-border/40 bg-muted/20 p-2 focus-within:border-primary/40 transition-colors">
               <Textarea
                 ref={textareaRef}
                 value={input}
@@ -150,34 +150,34 @@ export default function ChatApp() {
                 onKeyDown={handleKeyDown}
                 placeholder={
                   !isOnline
-                    ? "You're offline — AI responses need internet"
-                    : "Type your message..."
+                    ? "Offline — AI responses require an internet connection"
+                    : "Type your message…"
                 }
                 rows={1}
-                className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[2.5rem] max-h-32 text-sm"
+                className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[2.25rem] max-h-32 text-sm placeholder:text-muted-foreground/40"
                 disabled={isStreaming}
               />
               {isStreaming ? (
                 <Button
                   onClick={stopStreaming}
                   size="icon"
-                  className="h-9 w-9 shrink-0 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300"
+                  className="h-8 w-8 shrink-0 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300"
                 >
-                  <Square className="h-4 w-4" />
+                  <Square className="h-3.5 w-3.5" />
                 </Button>
               ) : (
                 <Button
                   onClick={handleSend}
                   disabled={!input.trim() || !isOnline}
                   size="icon"
-                  className="h-9 w-9 shrink-0 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white disabled:opacity-30"
+                  className="h-8 w-8 shrink-0 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white disabled:opacity-20"
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>
-            <p className="text-[10px] text-muted-foreground text-center mt-1.5">
-              Press Enter to send • Shift+Enter for new line
+            <p className="text-[10px] text-muted-foreground/40 text-center mt-1.5">
+              Enter to send · Shift+Enter for newline
             </p>
           </div>
         </div>

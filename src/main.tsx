@@ -132,7 +132,7 @@ createRoot(document.getElementById("root")!).render(
               />
               <Route
                 path="/auth"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
+                element={<AuthPage redirectAfterAuth="/app" />}
               />
               <Route
                 path="/dashboard"
