@@ -25,7 +25,6 @@ export default function ChatApp() {
     isStreaming,
     sendMessage,
     stopStreaming,
-    createConversation,
   } = useQuantumApp();
   const { isOnline } = useConnection();
   const [input, setInput] = useState("");
@@ -52,9 +51,6 @@ export default function ChatApp() {
 
     setInput("");
     try {
-      if (!currentConversation) {
-        createConversation();
-      }
       await sendMessage(trimmed);
     } catch (error) {
       console.error("Send error:", error);

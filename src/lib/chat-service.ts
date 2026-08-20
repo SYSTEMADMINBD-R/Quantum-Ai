@@ -24,35 +24,42 @@ async function* streamGemini(
     parts: [{ text: msg.content }],
   }));
 
-  const model = "gemini-3.1-flash-lite";
+  const model = "gemini-2.5-flash-lite";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: systemPrompt }],
-      },
-      contents,
-      generationConfig: {
-        temperature: 0.9,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 8192,
-      },
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: {
+          parts: [{ text: systemPrompt }],
+        },
+        contents,
+        generationConfig: {
+          temperature: 0.9,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 8192,
+        },
+      }),
+    });
+  } catch (e) {
+    throw new Error(
+      `Network error connecting to Gemini API. Check your internet connection. (${e instanceof Error ? e.message : "unknown"})`,
+    );
+  }
 
   if (!response.ok) {
     const error = await response.text();
     throw new Error(
-      `Gemini API error (${response.status}): ${error.slice(0, 200)}`,
+      `Gemini API error (${response.status}): ${error.slice(0, 300)}`,
     );
   }
 
   const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response body");
+  if (!reader) throw new Error("No response body from Gemini API");
 
   const decoder = new TextDecoder();
   let buffer = "";
@@ -69,8 +76,12 @@ async function* streamGemini(
       if (line.startsWith("data: ")) {
         try {
           const data = JSON.parse(line.slice(6));
-          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) yield text;
+          // Handle both array and single candidate formats
+          const candidates = data?.candidates;
+          if (candidates && candidates.length > 0) {
+            const text = candidates[0]?.content?.parts?.[0]?.text;
+            if (text) yield text;
+          }
         } catch {
           // Skip malformed SSE lines
         }
@@ -95,30 +106,37 @@ async function* streamGroq(
 
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
       model: "openai/gpt-oss-120b",
       messages: chatMessages,
       temperature: 0.7,
       max_tokens: 8192,
       stream: true,
-    }),
-  });
+      }),
+    });
+  } catch (e) {
+    throw new Error(
+      `Network error connecting to Groq API. Check your internet connection. (${e instanceof Error ? e.message : "unknown"})`,
+    );
+  }
 
   if (!response.ok) {
     const error = await response.text();
     throw new Error(
-      `Groq API error (${response.status}): ${error.slice(0, 200)}`,
+      `Groq API error (${response.status}): ${error.slice(0, 300)}`,
     );
   }
 
   const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response body");
+  if (!reader) throw new Error("No response body from Groq API");
 
   const decoder = new TextDecoder();
   let buffer = "";
@@ -182,31 +200,38 @@ export async function sendMessage(
 
   if (mode === "general") {
     // Use Gemini non-streaming
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
     const contents = conversationHistory.map((msg) => ({
       role: msg.role === "assistant" ? "model" : "user",
       parts: [{ text: msg.content }],
     }));
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: systemPrompt }],
-        },
-        contents,
-        generationConfig: {
-          temperature: 0.9,
-          maxOutputTokens: 8192,
-        },
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: systemPrompt }],
+          },
+          contents,
+          generationConfig: {
+            temperature: 0.9,
+            maxOutputTokens: 8192,
+          },
+        }),
+      });
+    } catch (e) {
+      throw new Error(
+        `Network error connecting to Gemini API. Check your internet connection. (${e instanceof Error ? e.message : "unknown"})`,
+      );
+    }
 
     if (!response.ok) {
       const error = await response.text();
       throw new Error(
-        `Gemini API error (${response.status}): ${error.slice(0, 200)}`,
+        `Gemini API error (${response.status}): ${error.slice(0, 300)}`,
       );
     }
 
@@ -215,30 +240,37 @@ export async function sendMessage(
   } else {
     // Use Groq non-streaming
     const url = "https://api.groq.com/openai/v1/chat/completions";
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-oss-120b",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...conversationHistory.map((msg) => ({
-            role: msg.role as "user" | "assistant",
-            content: msg.content,
-          })),
-        ],
-        temperature: 0.7,
-        max_tokens: 8192,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-oss-120b",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...conversationHistory.map((msg) => ({
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+            })),
+          ],
+          temperature: 0.7,
+          max_tokens: 8192,
+        }),
+      });
+    } catch (e) {
+      throw new Error(
+        `Network error connecting to Groq API. Check your internet connection. (${e instanceof Error ? e.message : "unknown"})`,
+      );
+    }
 
     if (!response.ok) {
       const error = await response.text();
       throw new Error(
-        `Groq API error (${response.status}): ${error.slice(0, 200)}`,
+        `Groq API error (${response.status}): ${error.slice(0, 300)}`,
       );
     }
 

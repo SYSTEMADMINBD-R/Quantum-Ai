@@ -66,6 +66,22 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Ref to avoid stale closures in async callbacks
+  const convRef = useRef<Conversation | null>(null);
+  const modeRef = useRef<AIMode>(currentMode);
+  const settingsRef = useRef<QuantumSettings>(settings);
+
+  // Keep refs in sync
+  useEffect(() => {
+    convRef.current = currentConversation;
+  }, [currentConversation]);
+  useEffect(() => {
+    modeRef.current = currentMode;
+  }, [currentMode]);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
   // Load conversations from IndexedDB on mount
   useEffect(() => {
     getAllConversations()
@@ -74,38 +90,27 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoadingConversations(false));
   }, []);
 
-  const persistConversation = useCallback(async (conv: Conversation) => {
-    await saveConversation(conv);
-    setConversations((prev) => {
-      const idx = prev.findIndex((c) => c.id === conv.id);
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = conv;
-        return updated;
-      }
-      return [conv, ...prev];
-    });
-  }, []);
-
   const createConversation = useCallback((): Conversation => {
     const conv: Conversation = {
       id: generateId(),
       title: "New conversation",
       messages: [],
-      mode: currentMode,
+      mode: modeRef.current,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
     setCurrentConversation(conv);
+    convRef.current = conv;
     setConversations((prev) => [conv, ...prev]);
     return conv;
-  }, [currentMode]);
+  }, []);
 
   const selectConversation = useCallback((id: string) => {
     setConversations((prev) => {
       const conv = prev.find((c) => c.id === id);
       if (conv) {
         setCurrentConversation(conv);
+        convRef.current = conv;
         setCurrentMode(conv.mode);
       }
       return prev;
@@ -116,11 +121,12 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       await deleteConversationDB(id);
       setConversations((prev) => prev.filter((c) => c.id !== id));
-      if (currentConversation?.id === id) {
+      if (convRef.current?.id === id) {
         setCurrentConversation(null);
+        convRef.current = null;
       }
     },
-    [currentConversation],
+    [],
   );
 
   const stopStreaming = useCallback(() => {
@@ -130,10 +136,13 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
 
   const sendMessage = useCallback(
     async (content: string) => {
-      const apiKey = getActiveApiKey(settings, currentMode);
+      const mode = modeRef.current;
+      const currentSettings = settingsRef.current;
+
+      const apiKey = getActiveApiKey(currentSettings, mode);
       if (!apiKey) {
         throw new Error(
-          `No ${currentMode === "general" ? "Gemini" : "Groq"} API key configured. Go to Settings to add one.`,
+          `No ${mode === "general" ? "Gemini" : "Groq"} API key configured. Go to Settings to add one.`,
         );
       }
 
@@ -141,35 +150,41 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
         id: generateId(),
         role: "user",
         content,
-        mode: currentMode,
+        mode,
         timestamp: Date.now(),
       };
 
-      // Create or update conversation
-      let conv = currentConversation;
+      // Create or update conversation using ref to avoid stale closure
+      let conv = convRef.current;
       if (!conv) {
         conv = {
           id: generateId(),
           title: generateTitle(content),
           messages: [userMessage],
-          mode: currentMode,
+          mode,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
-        setCurrentConversation(conv);
-        setConversations((prev) => [conv!, ...prev]);
       } else {
-        const updated = {
+        conv = {
           ...conv,
           messages: [...conv.messages, userMessage],
           updatedAt: Date.now(),
         };
-        conv = updated;
-        setCurrentConversation(updated);
-        setConversations((prev) =>
-          prev.map((c) => (c.id === updated.id ? updated : c)),
-        );
       }
+
+      // Update both state and ref
+      setCurrentConversation(conv);
+      convRef.current = conv;
+      setConversations((prev) => {
+        const idx = prev.findIndex((c) => c.id === conv!.id);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = conv!;
+          return updated;
+        }
+        return [conv!, ...prev];
+      });
 
       setIsStreaming(true);
       const abortController = new AbortController();
@@ -179,7 +194,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
         id: generateId(),
         role: "assistant",
         content: "",
-        mode: currentMode,
+        mode,
         timestamp: Date.now(),
       };
 
@@ -187,8 +202,8 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
         await streamChat(
           {
             apiKey,
-            mode: currentMode,
-            systemPrompt: settings.systemPrompts[currentMode],
+            mode,
+            systemPrompt: currentSettings.systemPrompts[mode],
             conversationHistory: conv.messages,
           },
           {
@@ -197,7 +212,6 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
               setCurrentConversation((prev) => {
                 if (!prev) return prev;
                 const msgs = [...prev.messages];
-                // Update or add the streaming message
                 const existingIdx = msgs.findIndex(
                   (m) => m.id === assistantMessage.id,
                 );
@@ -206,7 +220,9 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
                 } else {
                   msgs.push(updatedMsg);
                 }
-                return { ...prev, messages: msgs, updatedAt: Date.now() };
+                const updated = { ...prev, messages: msgs, updatedAt: Date.now() };
+                convRef.current = updated;
+                return updated;
               });
             },
             onDone: (fullText) => {
@@ -224,7 +240,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
                   messages: msgs,
                   updatedAt: Date.now(),
                 };
-                // Persist to IndexedDB
+                convRef.current = finalConv;
                 saveConversation(finalConv).catch(console.error);
                 setConversations((p) =>
                   p.map((c) => (c.id === finalConv.id ? finalConv : c)),
@@ -235,12 +251,11 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
             },
             onError: (error) => {
               console.error("Stream error:", error);
-              // Add error message to conversation
               const errorMsg: Message = {
                 id: generateId(),
                 role: "assistant",
                 content: `⚠️ Error: ${error.message}\n\nPlease check your API key and try again.`,
-                mode: currentMode,
+                mode,
                 timestamp: Date.now(),
               };
               setCurrentConversation((prev) => {
@@ -250,6 +265,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
                   messages: [...prev.messages, errorMsg],
                   updatedAt: Date.now(),
                 };
+                convRef.current = updated;
                 saveConversation(updated).catch(console.error);
                 return updated;
               });
@@ -262,7 +278,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [currentConversation, currentMode, settings],
+    [],
   );
 
   const updateSettingsHandler = useCallback(
