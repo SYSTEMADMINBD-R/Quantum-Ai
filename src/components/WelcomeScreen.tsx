@@ -13,9 +13,15 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Smartphone,
+  Monitor,
+  HardDrive,
+  Key,
+  Settings,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { preloadOfflineModel } from "@/lib/offline-ai";
+import { useState } from "react";
 
 const SUGGESTIONS = {
   general: [
@@ -32,6 +38,58 @@ const SUGGESTIONS = {
   ],
 };
 
+function detectPlatform(): "ios" | "android" | "windows" | "other" {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return "ios";
+  if (/android/.test(ua)) return "android";
+  if (/win/.test(ua)) return "windows";
+  return "other";
+}
+
+function getInstallInstructions(platform: string) {
+  switch (platform) {
+    case "ios":
+      return {
+        icon: Smartphone,
+        steps: [
+          "Open this page in Safari",
+          "Tap the Share button (⬆️ box icon)",
+          'Tap "Add to Home Screen"',
+          'Tap "Add" to confirm',
+        ],
+      };
+    case "android":
+      return {
+        icon: Smartphone,
+        steps: [
+          "Open this page in Chrome",
+          'Tap the menu (⋮) → "Install app"',
+          'Or tap "Add to Home Screen"',
+          "Confirm the install",
+        ],
+      };
+    case "windows":
+      return {
+        icon: Monitor,
+        steps: [
+          "Open this page in Edge or Chrome",
+          'Click the install icon in the address bar (⊕)',
+          'Or click menu → "Install Quantum AI"',
+          "Confirm the install",
+        ],
+      };
+    default:
+      return {
+        icon: Globe,
+        steps: [
+          "Open this page in Chrome or Edge",
+          'Click the install icon in the address bar',
+          "Confirm the install",
+        ],
+      };
+  }
+}
+
 export function WelcomeScreen() {
   const {
     currentMode,
@@ -41,6 +99,7 @@ export function WelcomeScreen() {
     offlineModelState,
     isOnline,
   } = useQuantumApp();
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
   const config = MODE_CONFIG[currentMode];
   const hasApiKey =
     currentMode === "general"
@@ -48,6 +107,8 @@ export function WelcomeScreen() {
       : settings.groqApiKeys.length > 0;
 
   const canChat = hasApiKey || offlineModelState.status === "ready";
+  const platform = detectPlatform();
+  const installInfo = getInstallInstructions(platform);
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto min-h-0">
@@ -58,7 +119,7 @@ export function WelcomeScreen() {
         className="max-w-2xl w-full text-center"
       >
         {/* Logo */}
-        <div className="mb-8 relative">
+        <div className="mb-6 relative">
           <div
             className={cn(
               "mx-auto h-20 w-20 rounded-2xl flex items-center justify-center bg-gradient-to-br",
@@ -89,117 +150,152 @@ export function WelcomeScreen() {
         <p className={cn("text-sm font-medium mb-1", config.textClass)}>
           {config.label} — {config.description}
         </p>
-        <p className="text-muted-foreground text-sm max-w-md mx-auto">
-          {!isOnline
-            ? "You're offline. Chat with the local AI model running in your browser."
-            : hasApiKey
-              ? "Ask anything — powered by cloud AI with ultra-fast inference."
-              : "Add an API key in Settings, or use the built-in offline model."}
-        </p>
 
-        {/* Offline Model Status */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="mt-6 rounded-xl border border-border/30 bg-muted/20 p-4 text-left"
-        >
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 mt-0.5">
-              {offlineModelState.status === "ready" ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-              ) : offlineModelState.status === "error" ? (
-                <AlertCircle className="h-5 w-5 text-red-400" />
-              ) : offlineModelState.status === "idle" ? (
-                <Download className="h-5 w-5 text-cyan-400" />
-              ) : (
-                <Loader2 className="h-5 w-5 text-cyan-400 animate-spin" />
-              )}
-            </div>
-            <div className="flex-1">
+        {/* Setup Steps — clear guide */}
+        <div className="mt-6 space-y-3 text-left max-w-md mx-auto">
+          {/* Step 1: Install as app */}
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="rounded-xl border border-border/30 bg-muted/20 p-4"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-6 w-6 rounded-full bg-cyan-500/20 flex items-center justify-center text-[11px] font-bold text-cyan-400">
+                1
+              </div>
               <p className="text-sm font-medium text-foreground">
-                {offlineModelState.status === "ready"
-                  ? "Offline model ready"
-                  : offlineModelState.status === "downloading"
-                    ? `Downloading offline model (${offlineModelState.progress}%)`
-                    : offlineModelState.status === "loading"
-                      ? "Loading offline model into memory…"
-                      : offlineModelState.status === "error"
-                        ? "Offline model failed to load"
-                        : "Offline AI model"}
+                Install as an app
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {offlineModelState.status === "ready"
-                  ? "Qwen2-0.5B running locally. Works without internet."
-                  : offlineModelState.status === "downloading"
-                    ? `Downloading ${offlineModelState.modelSize} from Hugging Face. This may take a few minutes on first load.`
-                    : offlineModelState.status === "error"
-                      ? offlineModelState.error
-                      : "A small language model that runs in your browser. Download once, use forever — even offline."}
+              <button
+                onClick={() => setShowInstallGuide(!showInstallGuide)}
+                className="ml-auto text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showInstallGuide ? "Hide" : "How?"}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground ml-9">
+              Install Quantum AI on your device for a native app experience.
+              Works just like ChatGPT or Gemini — icon on home screen, full screen, no browser bar.
+            </p>
+            {showInstallGuide && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                className="ml-9 mt-3 space-y-1.5"
+              >
+                {installInfo.steps.map((step, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="text-cyan-400 font-mono">{i + 1}.</span>
+                    {step}
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </motion.div>
+
+          {/* Step 2: Download offline model */}
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="rounded-xl border border-border/30 bg-muted/20 p-4"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-6 w-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-[11px] font-bold text-emerald-400">
+                2
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                Download the offline AI
               </p>
-              {(offlineModelState.status === "idle" ||
-                offlineModelState.status === "error") && (
+            </div>
+            <p className="text-xs text-muted-foreground ml-9 mb-3">
+              Download the language model once. After that, it works forever — even with no internet.
+            </p>
+
+            <div className="ml-9">
+              {offlineModelState.status === "ready" ? (
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-xs font-medium">Ready — model installed and working</span>
+                </div>
+              ) : offlineModelState.status === "downloading" ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-cyan-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-xs font-medium">
+                      Downloading… {offlineModelState.progress}%
+                    </span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
+                      animate={{ width: `${offlineModelState.progress}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {offlineModelState.modelSize} — this may take a few minutes on WiFi.
+                  </p>
+                </div>
+              ) : offlineModelState.status === "loading" ? (
+                <div className="flex items-center gap-2 text-cyan-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-xs font-medium">Loading model into memory…</span>
+                </div>
+              ) : offlineModelState.status === "error" ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-red-400">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="text-xs font-medium">Download failed</span>
+                  </div>
+                  <p className="text-[10px] text-red-400/70">{offlineModelState.error}</p>
+                  <button
+                    onClick={preloadOfflineModel}
+                    className="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1"
+                  >
+                    <Download className="h-3 w-3" />
+                    Retry download
+                  </button>
+                </div>
+              ) : (
                 <button
                   onClick={preloadOfflineModel}
-                  className="mt-2 text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white px-4 py-3 text-sm font-medium transition-all"
                 >
-                  <Download className="h-3 w-3" />
-                  {offlineModelState.status === "error"
-                    ? "Retry download"
-                    : "Download offline model"}
+                  <Download className="h-4 w-4" />
+                  Download Offline Model
+                  <span className="text-xs opacity-70 ml-1">(~400MB)</span>
                 </button>
               )}
-              {offlineModelState.status === "downloading" && (
-                <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{
-                      width: `${offlineModelState.progress}%`,
-                    }}
-                    transition={{ duration: 0.3 }}
-                  />
-                </div>
-              )}
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
 
-        {/* Features */}
-        <div className="mt-6 grid grid-cols-3 gap-3">
-          {[
-            {
-              icon: Globe,
-              title: "Online + Offline",
-              desc: "Cloud AI online, local model offline",
-            },
-            {
-              icon: Zap,
-              title: "Dual Modes",
-              desc: "General + Hacking with different engines",
-            },
-            {
-              icon: WifiOff,
-              title: "Installable",
-              desc: "Install as an app on any device",
-            },
-          ].map((feature) => (
-            <motion.div
-              key={feature.title}
-              whileHover={{ scale: 1.02 }}
-              className="rounded-xl border border-border/30 bg-muted/30 p-3"
-            >
-              <feature.icon className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
-              <p className="text-xs font-medium">{feature.title}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                {feature.desc}
+          {/* Step 3: Add API keys (optional) */}
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="rounded-xl border border-border/30 bg-muted/20 p-4"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-6 w-6 rounded-full bg-purple-500/20 flex items-center justify-center text-[11px] font-bold text-purple-400">
+                3
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                Add API keys <span className="text-[10px] text-muted-foreground font-normal">(optional)</span>
               </p>
-            </motion.div>
-          ))}
+            </div>
+            <p className="text-xs text-muted-foreground ml-9">
+              For faster, smarter cloud AI — add your Gemini or Groq API keys in Settings (⚙️).
+              Without keys, the offline model handles everything.
+            </p>
+          </motion.div>
         </div>
 
-        {/* Suggestions — show when we can chat (API key or offline model ready) */}
+        {/* Suggestions — show when we can chat */}
         {canChat && (
-          <div className="mt-8 space-y-2">
+          <div className="mt-6 space-y-2">
             <p className="text-xs text-muted-foreground mb-3">
               <Sparkles className="h-3 w-3 inline mr-1" />
               Try asking
