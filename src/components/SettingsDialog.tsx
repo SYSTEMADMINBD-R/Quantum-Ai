@@ -1,6 +1,8 @@
-import { useState } from "react";
+"use client";
+
+import { useCallback, useRef, useState } from "react";
 import { useQuantumApp } from "@/hooks/use-quantum-app";
-import { DEFAULT_SETTINGS } from "@/types/quantum";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -8,291 +10,380 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Settings,
   Plus,
   Trash2,
-  Key,
-  Brain,
-  Shield,
-  Save,
-  RotateCcw,
+  KeyRound,
+  Download,
+  Upload,
+  Copy,
+  Check,
 } from "lucide-react";
 
 export function SettingsDialog() {
   const { settings, updateSettings } = useQuantumApp();
   const [open, setOpen] = useState(false);
-  const [geminiKeys, setGeminiKeys] = useState<string[]>(
-    settings.geminiApiKeys,
-  );
-  const [groqKeys, setGroqKeys] = useState<string[]>(settings.groqApiKeys);
-  const [systemPromptGeneral, setSystemPromptGeneral] = useState(
-    settings.systemPrompts.general,
-  );
-  const [systemPromptHacking, setSystemPromptHacking] = useState(
-    settings.systemPrompts.hacking,
-  );
   const [newGeminiKey, setNewGeminiKey] = useState("");
   const [newGroqKey, setNewGroqKey] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [showImport, setShowImport] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSave = () => {
-    updateSettings({
-      ...settings,
-      geminiApiKeys: geminiKeys.filter((k) => k.trim()),
-      groqApiKeys: groqKeys.filter((k) => k.trim()),
-      systemPrompts: {
-        general: systemPromptGeneral,
-        hacking: systemPromptHacking,
-      },
-    });
-    setOpen(false);
-  };
-
-  const addGeminiKey = () => {
-    if (newGeminiKey.trim()) {
-      setGeminiKeys([...geminiKeys, newGeminiKey.trim()]);
+  const addGeminiKey = useCallback(() => {
+    const key = newGeminiKey.trim();
+    if (!key) return;
+    if (settings.geminiApiKeys.includes(key)) {
       setNewGeminiKey("");
+      return;
     }
-  };
+    updateSettings({ ...settings, geminiApiKeys: [...settings.geminiApiKeys, key] });
+    setNewGeminiKey("");
+  }, [newGeminiKey, settings, updateSettings]);
 
-  const addGroqKey = () => {
-    if (newGroqKey.trim()) {
-      setGroqKeys([...groqKeys, newGroqKey.trim()]);
+  const addGroqKey = useCallback(() => {
+    const key = newGroqKey.trim();
+    if (!key) return;
+    if (settings.groqApiKeys.includes(key)) {
       setNewGroqKey("");
+      return;
     }
+    updateSettings({ ...settings, groqApiKeys: [...settings.groqApiKeys, key] });
+    setNewGroqKey("");
+  }, [newGroqKey, settings, updateSettings]);
+
+  const removeGeminiKey = useCallback(
+    (index: number) => {
+      const updated = settings.geminiApiKeys.filter((_, i) => i !== index);
+      updateSettings({ ...settings, geminiApiKeys: updated });
+    },
+    [settings, updateSettings],
+  );
+
+  const removeGroqKey = useCallback(
+    (index: number) => {
+      const updated = settings.groqApiKeys.filter((_, i) => i !== index);
+      updateSettings({ ...settings, groqApiKeys: updated });
+    },
+    [settings, updateSettings],
+  );
+
+  const maskKey = (key: string) => {
+    if (key.length <= 12) return "••••••••";
+    return key.slice(0, 6) + "••••" + key.slice(-4);
   };
 
-  const removeGeminiKey = (index: number) => {
-    setGeminiKeys(geminiKeys.filter((_, i) => i !== index));
-  };
+  const handleExport = useCallback(() => {
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: {
+        geminiApiKeys: settings.geminiApiKeys,
+        groqApiKeys: settings.groqApiKeys,
+        systemPrompts: settings.systemPrompts,
+      },
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `quantum-ai-settings-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [settings]);
 
-  const removeGroqKey = (index: number) => {
-    setGroqKeys(groqKeys.filter((_, i) => i !== index));
-  };
+  const handleCopyExport = useCallback(() => {
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: {
+        geminiApiKeys: settings.geminiApiKeys,
+        groqApiKeys: settings.groqApiKeys,
+        systemPrompts: settings.systemPrompts,
+      },
+    };
+    navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [settings]);
 
-  const resetPrompts = () => {
-    setSystemPromptGeneral(DEFAULT_SETTINGS.systemPrompts.general);
-    setSystemPromptHacking(DEFAULT_SETTINGS.systemPrompts.hacking);
-  };
+  const handleImport = useCallback(() => {
+    try {
+      const parsed = JSON.parse(importText);
+      const data = parsed.data || parsed;
+      updateSettings({
+        ...settings,
+        geminiApiKeys: data.geminiApiKeys || settings.geminiApiKeys,
+        groqApiKeys: data.groqApiKeys || settings.groqApiKeys,
+        systemPrompts: data.systemPrompts || settings.systemPrompts,
+      });
+      setImportText("");
+      setShowImport(false);
+    } catch {
+      // invalid JSON
+    }
+  }, [importText, settings, updateSettings]);
+
+  const handleFileImport = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        setImportText(text);
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    },
+    [],
+  );
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (v) {
-          // Reset form state when opening
-          setGeminiKeys(settings.geminiApiKeys);
-          setGroqKeys(settings.groqApiKeys);
-          setSystemPromptGeneral(settings.systemPrompts.general);
-          setSystemPromptHacking(settings.systemPrompts.hacking);
-        }
-      }}
-    >
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-slate-400 hover:text-slate-200 hover:bg-white/5"
+        >
           <Settings className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-card/95 backdrop-blur-xl border-border/50">
+      <DialogContent className="bg-[#141920] border-white/10 text-slate-200 max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <Settings className="h-5 w-5" />
-            Quantum AI Settings
+          <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-cyan-400" />
+            Settings
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="keys" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="keys" className="flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              API Keys
-            </TabsTrigger>
-            <TabsTrigger value="prompts" className="flex items-center gap-2">
-              <Brain className="h-4 w-4" />
-              System Prompts
-            </TabsTrigger>
-          </TabsList>
+        <div className="space-y-6 mt-4">
+          {/* Export / Import */}
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              className="border-white/10 bg-white/5 hover:bg-white/10 text-slate-300"
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              Export Keys
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyExport}
+              className="border-white/10 bg-white/5 hover:bg-white/10 text-slate-300"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-400" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowImport(!showImport)}
+              className="border-white/10 bg-white/5 hover:bg-white/10 text-slate-300"
+            >
+              <Upload className="h-3.5 w-3.5 mr-1.5" />
+              Import
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              className="border-white/10 bg-white/5 hover:bg-white/10 text-slate-300"
+            >
+              <Upload className="h-3.5 w-3.5 mr-1.5" />
+              Import File
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={handleFileImport}
+            />
+          </div>
 
-          <TabsContent value="keys" className="space-y-6 mt-4">
-            {/* Gemini Keys */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-cyan-400" />
-                <Label className="text-sm font-medium">
-                  Gemini API Keys
-                </Label>
-                <span className="text-xs text-muted-foreground">
-                  (General Mode)
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Add one or more Google AI Studio API keys. Keys are rotated
-                automatically for faster responses.
-              </p>
-              {geminiKeys.map((key, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    type="password"
-                    value={key}
-                    onChange={(e) => {
-                      const updated = [...geminiKeys];
-                      updated[i] = e.target.value;
-                      setGeminiKeys(updated);
-                    }}
-                    placeholder="AIza..."
-                    className="font-mono text-xs"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeGeminiKey(i)}
-                    className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newGeminiKey}
-                  onChange={(e) => setNewGeminiKey(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addGeminiKey()}
-                  placeholder="Add new Gemini API key..."
-                  className="font-mono text-xs"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={addGeminiKey}
-                  className="h-9 w-9 shrink-0"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+          {showImport && (
+            <div className="space-y-2">
+              <Label className="text-sm text-slate-400">
+                Paste exported settings JSON:
+              </Label>
+              <Textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder='{"version":1,"data":{"geminiApiKeys":[...],...}}'
+                className="bg-white/5 border-white/10 text-slate-200 min-h-[100px] font-mono text-xs"
+              />
+              <Button
+                size="sm"
+                onClick={handleImport}
+                disabled={!importText.trim()}
+                className="bg-cyan-600 hover:bg-cyan-500 text-white"
+              >
+                Apply Import
+              </Button>
             </div>
+          )}
 
-            <Separator />
-
-            {/* Groq Keys */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-emerald-400" />
-                <Label className="text-sm font-medium">Groq API Keys</Label>
-                <span className="text-xs text-muted-foreground">
-                  (Hacking Mode)
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Add one or more Groq API keys for ultra-fast inference with
-                higher token limits.
-              </p>
-              {groqKeys.map((key, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input
-                    type="password"
-                    value={key}
-                    onChange={(e) => {
-                      const updated = [...groqKeys];
-                      updated[i] = e.target.value;
-                      setGroqKeys(updated);
-                    }}
-                    placeholder="gsk_..."
-                    className="font-mono text-xs"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeGroqKey(i)}
-                    className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newGroqKey}
-                  onChange={(e) => setNewGroqKey(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addGroqKey()}
-                  placeholder="Add new Groq API key..."
-                  className="font-mono text-xs"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={addGroqKey}
-                  className="h-9 w-9 shrink-0"
+          {/* Gemini API Keys */}
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium text-slate-300">
+                General Mode — Gemini API Keys
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Get yours at{" "}
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:underline"
                 >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+                  Google AI Studio
+                </a>
+              </p>
             </div>
-          </TabsContent>
-
-          <TabsContent value="prompts" className="space-y-6 mt-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-cyan-400" />
-                  <Label className="text-sm font-medium">
-                    General Mode System Prompt
-                  </Label>
-                </div>
+            {settings.geminiApiKeys.map((key, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  value={maskKey(key)}
+                  readOnly
+                  className="bg-white/5 border-white/10 text-slate-400 font-mono text-xs flex-1"
+                />
                 <Button
                   variant="ghost"
-                  size="sm"
-                  onClick={resetPrompts}
-                  className="gap-1 text-xs"
+                  size="icon"
+                  onClick={() => removeGeminiKey(i)}
+                  className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0"
                 >
-                  <RotateCcw className="h-3 w-3" />
-                  Reset
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
-              <Textarea
-                value={systemPromptGeneral}
-                onChange={(e) => setSystemPromptGeneral(e.target.value)}
-                rows={4}
-                className="text-sm resize-none"
+            ))}
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="Paste Gemini API key..."
+                value={newGeminiKey}
+                onChange={(e) => setNewGeminiKey(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addGeminiKey()}
+                className="bg-white/5 border-white/10 text-slate-200 placeholder:text-slate-600 text-xs"
               />
+              <Button
+                size="icon"
+                onClick={addGeminiKey}
+                disabled={!newGeminiKey.trim()}
+                className="h-9 w-9 bg-cyan-600 hover:bg-cyan-500 text-white shrink-0 disabled:opacity-30"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
+          </div>
 
-            <Separator />
-
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-emerald-400" />
-                <Label className="text-sm font-medium">
-                  Hacking Mode System Prompt
-                </Label>
+          {/* Groq API Keys */}
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium text-slate-300">
+                Hacking Mode — Groq API Keys
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Get yours at{" "}
+                <a
+                  href="https://console.groq.com/keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 hover:underline"
+                >
+                  Groq Console
+                </a>
+              </p>
+            </div>
+            {settings.groqApiKeys.map((key, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  value={maskKey(key)}
+                  readOnly
+                  className="bg-white/5 border-white/10 text-slate-400 font-mono text-xs flex-1"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeGroqKey(i)}
+                  className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
-              <Textarea
-                value={systemPromptHacking}
-                onChange={(e) => setSystemPromptHacking(e.target.value)}
-                rows={4}
-                className="text-sm resize-none"
+            ))}
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="Paste Groq API key..."
+                value={newGroqKey}
+                onChange={(e) => setNewGroqKey(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addGroqKey()}
+                className="bg-white/5 border-white/10 text-slate-200 placeholder:text-slate-600 text-xs"
               />
+              <Button
+                size="icon"
+                onClick={addGroqKey}
+                disabled={!newGroqKey.trim()}
+                className="h-9 w-9 bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 disabled:opacity-30"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSave}
-            className="gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white"
-          >
-            <Save className="h-4 w-4" />
-            Save Settings
-          </Button>
+          {/* System Prompts */}
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium text-slate-300">
+                General System Prompt
+              </h3>
+            </div>
+            <Textarea
+              value={settings.systemPrompts.general}
+              onChange={(e) =>
+                updateSettings({
+                  ...settings,
+                  systemPrompts: { ...settings.systemPrompts, general: e.target.value },
+                })
+              }
+              className="bg-white/5 border-white/10 text-slate-200 text-xs min-h-[80px]"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium text-slate-300">
+                Hacking System Prompt
+              </h3>
+            </div>
+            <Textarea
+              value={settings.systemPrompts.hacking}
+              onChange={(e) =>
+                updateSettings({
+                  ...settings,
+                  systemPrompts: { ...settings.systemPrompts, hacking: e.target.value },
+                })
+              }
+              className="bg-white/5 border-white/10 text-slate-200 text-xs min-h-[80px]"
+            />
+          </div>
         </div>
       </DialogContent>
     </Dialog>
