@@ -31,7 +31,6 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
     selectConversation,
     deleteConversation,
     currentMode,
-    settings,
   } = useQuantumApp();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
@@ -123,23 +122,10 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
             {MODE_CONFIG[currentMode].model}
           </span>
         </div>
-        {/* API key status */}
+        {/* Server-side status */}
         <div className="mt-1.5 px-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-          <span
-            className={cn(
-              "h-1.5 w-1.5 rounded-full",
-              currentMode === "general"
-                ? settings.geminiApiKeys.length > 0
-                  ? "bg-emerald-400"
-                  : "bg-amber-400"
-                : settings.groqApiKeys.length > 0
-                  ? "bg-emerald-400"
-                  : "bg-amber-400",
-            )}
-          />
-          {currentMode === "general"
-            ? `${settings.geminiApiKeys.length} Gemini key(s)`
-            : `${settings.groqApiKeys.length} Groq key(s)`}
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span>API configured server-side</span>
         </div>
       </div>
 

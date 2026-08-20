@@ -28,7 +28,7 @@ import {
   onOfflineModelStatus,
   preloadOfflineModel,
 } from "@/lib/offline-ai";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 interface QuantumAppState {
@@ -77,51 +77,22 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
   const { isOnline } = useConnection();
   const abortRef = useRef<AbortController | null>(null);
 
-  // Cloud sync
+  // Cloud sync (optional — for users who want to persist settings)
   const { isAuthenticated } = useConvexAuth();
-  const cloudSettings = useQuery(api.userSettings.get);
-  const saveCloudSettings = useMutation(api.userSettings.save);
 
   // Refs to avoid stale closures
   const convRef = useRef<Conversation | null>(null);
   const modeRef = useRef<AIMode>(currentMode);
   const settingsRef = useRef<QuantumSettings>(settings);
   const isOnlineRef = useRef<boolean>(isOnline);
-  const cloudSyncedRef = useRef(false);
+
 
   useEffect(() => { convRef.current = currentConversation; }, [currentConversation]);
   useEffect(() => { modeRef.current = currentMode; }, [currentMode]);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   useEffect(() => { isOnlineRef.current = isOnline; }, [isOnline]);
 
-  // When cloud settings load for the first time, merge them into local state
-  useEffect(() => {
-    if (!isAuthenticated || cloudSettings === undefined) return;
-    if (cloudSettings === null) {
-      // User is logged in but has no cloud settings yet — push local settings to cloud
-      if (!cloudSyncedRef.current) {
-        cloudSyncedRef.current = true;
-        saveCloudSettings(settings).catch(console.error);
-      }
-      return;
-    }
-    // Merge: prefer cloud if it has keys, otherwise keep local
-    const merged: QuantumSettings = {
-      geminiApiKeys:
-        cloudSettings.geminiApiKeys.length > 0
-          ? cloudSettings.geminiApiKeys
-          : settings.geminiApiKeys,
-      groqApiKeys:
-        cloudSettings.groqApiKeys.length > 0
-          ? cloudSettings.groqApiKeys
-          : settings.groqApiKeys,
-      defaultMode: cloudSettings.defaultMode,
-      systemPrompts: cloudSettings.systemPrompts,
-    };
-    setSettings(merged);
-    saveSettings(merged);
-    cloudSyncedRef.current = true;
-  }, [isAuthenticated, cloudSettings]); // eslint-disable-line react-hooks/exhaustive-deps
+  // No cloud settings sync needed — API keys are server-side via Convex env vars
 
   // Subscribe to offline model status changes
   useEffect(() => {
@@ -190,16 +161,9 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
       const currentSettings = settingsRef.current;
       const online = isOnlineRef.current;
 
-      // Get API key — may be null when offline (that's OK, we'll use local model)
-      const apiKey = getActiveApiKey(currentSettings, mode);
-
-      // Only show "no API key" error if we're online AND the offline model isn't ready
-      if (!apiKey && online && offlineModelState.status !== "ready" && offlineModelState.status !== "downloading" && offlineModelState.status !== "loading") {
-        const modeLabel = mode === "general" ? "Gemini" : "Groq";
-        const msg = `No ${modeLabel} API key configured. Add one in Settings, or wait for the offline model to download.`;
-        toast.error(msg);
-        throw new Error(msg);
-      }
+      // API keys are now server-side (Convex env vars). No client-side key needed.
+      // Pass a dummy key to indicate we're using the server proxy.
+      const apiKey = "server-proxy";
 
       const userMessage: Message = {
         id: generateId(),
@@ -342,12 +306,8 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     (newSettings: QuantumSettings) => {
       setSettings(newSettings);
       saveSettings(newSettings);
-      // Also save to cloud if logged in
-      if (isAuthenticated) {
-        saveCloudSettings(newSettings).catch(console.error);
-      }
     },
-    [isAuthenticated, saveCloudSettings],
+    [],
   );
 
   const value: QuantumAppState = {
