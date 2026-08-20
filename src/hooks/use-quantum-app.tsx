@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import {
   useState,
   useCallback,
@@ -22,23 +23,18 @@ import {
 import { streamChat } from "@/lib/chat-service";
 
 interface QuantumAppState {
-  // Settings
   settings: QuantumSettings;
   updateSettings: (settings: QuantumSettings) => void;
-  // Mode
   currentMode: AIMode;
   setMode: (mode: AIMode) => void;
-  // Conversations
   conversations: Conversation[];
   currentConversation: Conversation | null;
   createConversation: () => Conversation;
   selectConversation: (id: string) => void;
   deleteConversation: (id: string) => Promise<void>;
-  // Chat
   isStreaming: boolean;
   sendMessage: (content: string) => Promise<void>;
   stopStreaming: () => void;
-  // Loading
   isLoadingConversations: boolean;
 }
 
@@ -66,23 +62,15 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Ref to avoid stale closures in async callbacks
+  // Refs to avoid stale closures
   const convRef = useRef<Conversation | null>(null);
   const modeRef = useRef<AIMode>(currentMode);
   const settingsRef = useRef<QuantumSettings>(settings);
 
-  // Keep refs in sync
-  useEffect(() => {
-    convRef.current = currentConversation;
-  }, [currentConversation]);
-  useEffect(() => {
-    modeRef.current = currentMode;
-  }, [currentMode]);
-  useEffect(() => {
-    settingsRef.current = settings;
-  }, [settings]);
+  useEffect(() => { convRef.current = currentConversation; }, [currentConversation]);
+  useEffect(() => { modeRef.current = currentMode; }, [currentMode]);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
-  // Load conversations from IndexedDB on mount
   useEffect(() => {
     getAllConversations()
       .then(setConversations)
@@ -117,17 +105,14 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const deleteConv = useCallback(
-    async (id: string) => {
-      await deleteConversationDB(id);
-      setConversations((prev) => prev.filter((c) => c.id !== id));
-      if (convRef.current?.id === id) {
-        setCurrentConversation(null);
-        convRef.current = null;
-      }
-    },
-    [],
-  );
+  const deleteConv = useCallback(async (id: string) => {
+    await deleteConversationDB(id);
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (convRef.current?.id === id) {
+      setCurrentConversation(null);
+      convRef.current = null;
+    }
+  }, []);
 
   const stopStreaming = useCallback(() => {
     abortRef.current?.abort();
@@ -138,12 +123,13 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     async (content: string) => {
       const mode = modeRef.current;
       const currentSettings = settingsRef.current;
+      const modeLabel = mode === "general" ? "Gemini" : "Groq";
 
       const apiKey = getActiveApiKey(currentSettings, mode);
       if (!apiKey) {
-        throw new Error(
-          `No ${mode === "general" ? "Gemini" : "Groq"} API key configured. Go to Settings to add one.`,
-        );
+        const msg = `No ${modeLabel} API key configured. Open Settings (⚙️) to add one.`;
+        toast.error(msg);
+        throw new Error(msg);
       }
 
       const userMessage: Message = {
@@ -154,7 +140,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
         timestamp: Date.now(),
       };
 
-      // Create or update conversation using ref to avoid stale closure
+      // Create or update conversation
       let conv = convRef.current;
       if (!conv) {
         conv = {
@@ -173,7 +159,6 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      // Update both state and ref
       setCurrentConversation(conv);
       convRef.current = conv;
       setConversations((prev) => {
@@ -248,13 +233,15 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
                 return finalConv;
               });
               setIsStreaming(false);
+              toast.success("Response received");
             },
             onError: (error) => {
               console.error("Stream error:", error);
+              toast.error(`API Error: ${error.message}`);
               const errorMsg: Message = {
                 id: generateId(),
                 role: "assistant",
-                content: `⚠️ Error: ${error.message}\n\nPlease check your API key and try again.`,
+                content: `⚠️ Error: ${error.message}\n\nPlease check your API key in Settings and try again.`,
                 mode,
                 timestamp: Date.now(),
               };
