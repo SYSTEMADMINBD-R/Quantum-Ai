@@ -115,11 +115,11 @@ async function* streamGroq(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-      model: "openai/gpt-oss-120b",
-      messages: chatMessages,
-      temperature: 0.7,
-      max_tokens: 8192,
-      stream: true,
+        model: "openai/gpt-oss-120b",
+        messages: chatMessages,
+        temperature: 0.7,
+        max_completion_tokens: 8192,
+        stream: true,
       }),
     });
   } catch (e) {
@@ -258,7 +258,7 @@ export async function sendMessage(
             })),
           ],
           temperature: 0.7,
-          max_tokens: 8192,
+          max_completion_tokens: 8192,
         }),
       });
     } catch (e) {
