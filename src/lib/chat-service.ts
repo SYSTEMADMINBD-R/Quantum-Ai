@@ -24,7 +24,7 @@ async function* streamGemini(
     parts: [{ text: msg.content }],
   }));
 
-  const model = "gemini-2.5-flash-lite";
+  const model = "gemini-3.5-flash-lite";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
   let response: Response;
@@ -200,7 +200,7 @@ export async function sendMessage(
 
   if (mode === "general") {
     // Use Gemini non-streaming
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
     const contents = conversationHistory.map((msg) => ({
       role: msg.role === "assistant" ? "model" : "user",
       parts: [{ text: msg.content }],
