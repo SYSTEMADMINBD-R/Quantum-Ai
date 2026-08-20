@@ -32,12 +32,17 @@ const schema = defineSchema(
       role: v.optional(roleValidator), // role of the user. do not remove
     }).index("email", ["email"]), // index for the email. do not remove or modify
 
-    // add other tables here
-
-    // tableName: defineTable({
-    //   ...
-    //   // table fields
-    // }).index("by_field", ["field"])
+    // Quantum AI user settings (API keys, prompts) synced across devices
+    userSettings: defineTable({
+      userId: v.id("users"),
+      geminiApiKeys: v.array(v.string()),
+      groqApiKeys: v.array(v.string()),
+      defaultMode: v.union(v.literal("general"), v.literal("hacking")),
+      systemPrompts: v.object({
+        general: v.string(),
+        hacking: v.string(),
+      }),
+    }).index("by_user", ["userId"]),
   },
   {
     schemaValidation: false,

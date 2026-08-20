@@ -28,6 +28,8 @@ import {
   onOfflineModelStatus,
   preloadOfflineModel,
 } from "@/lib/offline-ai";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 interface QuantumAppState {
   settings: QuantumSettings;
@@ -75,16 +77,51 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
   const { isOnline } = useConnection();
   const abortRef = useRef<AbortController | null>(null);
 
+  // Cloud sync
+  const { isAuthenticated } = useConvexAuth();
+  const cloudSettings = useQuery(api.userSettings.get);
+  const saveCloudSettings = useMutation(api.userSettings.save);
+
   // Refs to avoid stale closures
   const convRef = useRef<Conversation | null>(null);
   const modeRef = useRef<AIMode>(currentMode);
   const settingsRef = useRef<QuantumSettings>(settings);
   const isOnlineRef = useRef<boolean>(isOnline);
+  const cloudSyncedRef = useRef(false);
 
   useEffect(() => { convRef.current = currentConversation; }, [currentConversation]);
   useEffect(() => { modeRef.current = currentMode; }, [currentMode]);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   useEffect(() => { isOnlineRef.current = isOnline; }, [isOnline]);
+
+  // When cloud settings load for the first time, merge them into local state
+  useEffect(() => {
+    if (!isAuthenticated || cloudSettings === undefined) return;
+    if (cloudSettings === null) {
+      // User is logged in but has no cloud settings yet — push local settings to cloud
+      if (!cloudSyncedRef.current) {
+        cloudSyncedRef.current = true;
+        saveCloudSettings(settings).catch(console.error);
+      }
+      return;
+    }
+    // Merge: prefer cloud if it has keys, otherwise keep local
+    const merged: QuantumSettings = {
+      geminiApiKeys:
+        cloudSettings.geminiApiKeys.length > 0
+          ? cloudSettings.geminiApiKeys
+          : settings.geminiApiKeys,
+      groqApiKeys:
+        cloudSettings.groqApiKeys.length > 0
+          ? cloudSettings.groqApiKeys
+          : settings.groqApiKeys,
+      defaultMode: cloudSettings.defaultMode,
+      systemPrompts: cloudSettings.systemPrompts,
+    };
+    setSettings(merged);
+    saveSettings(merged);
+    cloudSyncedRef.current = true;
+  }, [isAuthenticated, cloudSettings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Subscribe to offline model status changes
   useEffect(() => {
@@ -94,7 +131,6 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
   // Pre-load offline model when online (so it's ready when user goes offline)
   useEffect(() => {
     if (isOnline && offlineModelState.status === "idle") {
-      // Delay pre-load to not block initial render
       const timer = setTimeout(() => preloadOfflineModel(), 3000);
       return () => clearTimeout(timer);
     }
@@ -306,8 +342,12 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     (newSettings: QuantumSettings) => {
       setSettings(newSettings);
       saveSettings(newSettings);
+      // Also save to cloud if logged in
+      if (isAuthenticated) {
+        saveCloudSettings(newSettings).catch(console.error);
+      }
     },
-    [],
+    [isAuthenticated, saveCloudSettings],
   );
 
   const value: QuantumAppState = {
