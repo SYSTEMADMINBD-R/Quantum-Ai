@@ -19,6 +19,7 @@ import {
   Search,
   MessageSquare,
   User,
+  Code2,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -500,12 +501,54 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Made By */}
+      <section className="relative z-10 py-16 px-6 border-t border-border/20">
+        <div className="max-w-2xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="space-y-4"
+          >
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/15 to-blue-500/15 mx-auto">
+              <Code2 className="h-7 w-7 text-cyan-400" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
+                Designed & Developed by
+              </p>
+              <h2 className="text-2xl font-bold">
+                <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+                  RAGIB
+                </span>
+              </h2>
+            </div>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+              Quantum AI was built with a focus on privacy, offline
+              capability, and developer experience. Every feature exists to
+              make AI accessible — with or without an internet connection.
+            </p>
+            <div className="flex items-center justify-center gap-4 pt-2">
+              <span className="text-[11px] text-muted-foreground/60 flex items-center gap-1.5">
+                <Zap className="h-3 w-3" />
+                Built with TypeScript + React
+              </span>
+              <span className="h-3 w-px bg-border/40" />
+              <span className="text-[11px] text-muted-foreground/60 flex items-center gap-1.5">
+                <Cpu className="h-3 w-3" />
+                Powered by Transformers.js
+              </span>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="relative z-10 border-t border-border/20 py-5 px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between text-[11px] text-muted-foreground/60">
-          <span>Quantum AI v1.0</span>
+          <span>Quantum AI v1.0 — Made by RAGIB</span>
           <span>
-            Gemini &times; Groq &mdash; Offline-Ready
+            Gemini &times; Groq &times; Transformers.js
           </span>
         </div>
       </footer>

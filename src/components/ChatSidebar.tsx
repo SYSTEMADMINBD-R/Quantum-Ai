@@ -13,6 +13,7 @@ import {
   Brain,
   Shield,
   Zap,
+  Code2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
@@ -206,6 +207,14 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
           )}
         </div>
       </ScrollArea>
+
+      {/* Footer credit */}
+      <div className="border-t border-border/30 px-3 py-2.5">
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
+          <Code2 className="h-3 w-3" />
+          <span>Made by <span className="text-cyan-400/70 font-medium">RAGIB</span></span>
+        </div>
+      </div>
     </motion.aside>
   );
 }

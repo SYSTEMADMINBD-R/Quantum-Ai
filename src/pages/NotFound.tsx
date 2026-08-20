@@ -33,6 +33,9 @@ export default function NotFound() {
           Home
         </Button>
       </div>
+      <p className="mt-8 text-[11px] text-muted-foreground/40">
+        Made by <span className="text-cyan-400/40">RAGIB</span>
+      </p>
     </div>
   );
 }

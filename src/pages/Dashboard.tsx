@@ -295,6 +295,13 @@ export default function Dashboard() {
           </motion.div>
         </div>
       </div>
+
+      {/* Footer credit */}
+      <footer className="border-t border-border/20 py-4 px-6">
+        <div className="max-w-5xl mx-auto flex items-center justify-center text-[11px] text-muted-foreground/50">
+          <span>Made by <span className="text-cyan-400/50 font-medium">RAGIB</span></span>
+        </div>
+      </footer>
     </main>
   );
 }
