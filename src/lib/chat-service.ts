@@ -91,16 +91,26 @@ async function* streamGemini(
 }
 
 // Groq API (OpenAI-compatible) - supports multiple API keys
+// Free tier has ~8K TPM limit, so we truncate long histories
+const GROQ_MAX_HISTORY = 12;
+
+function truncateForGroq(messages: Message[]): Message[] {
+  if (messages.length <= GROQ_MAX_HISTORY) return messages;
+  // Always keep the most recent messages, prioritizing recent context
+  return messages.slice(-GROQ_MAX_HISTORY);
+}
+
 async function* streamGroq(
   apiKey: string,
   systemPrompt: string,
   messages: Message[],
 ): AsyncGenerator<string, void, unknown> {
+  const truncated = truncateForGroq(messages);
   const chatMessages = [
     { role: "system", content: systemPrompt },
-    ...messages.map((msg) => ({
+    ...truncated.map((msg) => ({
       role: msg.role as "user" | "assistant",
-      content: msg.content,
+      content: msg.content.length > 1500 ? msg.content.slice(-1500) : msg.content,
     })),
   ];
 
@@ -115,10 +125,10 @@ async function* streamGroq(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "openai/gpt-oss-120b",
+        model: "openai/gpt-oss-20b",
         messages: chatMessages,
         temperature: 0.7,
-        max_completion_tokens: 8192,
+        max_completion_tokens: 4096,
         stream: true,
       }),
     });
@@ -249,16 +259,16 @@ export async function sendMessage(
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "openai/gpt-oss-120b",
+          model: "openai/gpt-oss-20b",
           messages: [
             { role: "system", content: systemPrompt },
-            ...conversationHistory.map((msg) => ({
+            ...truncateForGroq(conversationHistory).map((msg) => ({
               role: msg.role as "user" | "assistant",
-              content: msg.content,
+              content: msg.content.length > 1500 ? msg.content.slice(-1500) : msg.content,
             })),
           ],
           temperature: 0.7,
-          max_completion_tokens: 8192,
+          max_completion_tokens: 4096,
         }),
       });
     } catch (e) {

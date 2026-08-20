@@ -53,7 +53,7 @@ export const MODE_CONFIG = {
   },
   hacking: {
     label: "Hacking Mode",
-    description: "Powered by Groq (Ultra-Fast)",
+    description: "Powered by Groq GPT-OSS 20B (1000 t/s)",
     color: "from-emerald-400 to-green-500",
     bgClass: "bg-gradient-to-r from-emerald-500/10 to-green-500/10",
     borderClass: "border-emerald-500/20",
