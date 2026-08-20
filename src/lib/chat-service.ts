@@ -1,10 +1,12 @@
 import type { AIMode, Message } from "@/types/quantum";
+import { streamOfflineChat } from "@/lib/offline-ai";
 
 interface ChatServiceOptions {
-  apiKey: string;
+  apiKey: string | null;
   mode: AIMode;
   systemPrompt: string;
   conversationHistory: Message[];
+  isOnline: boolean;
 }
 
 interface StreamCallbacks {
@@ -178,8 +180,25 @@ export async function streamChat(
   options: ChatServiceOptions,
   callbacks: StreamCallbacks,
 ): Promise<string> {
-  const { apiKey, mode, systemPrompt, conversationHistory } = options;
+  const { apiKey, mode, systemPrompt, conversationHistory, isOnline } = options;
   let fullText = "";
+
+  // If offline or no API key, use local offline model
+  if (!isOnline || !apiKey) {
+    try {
+      const generator = streamOfflineChat(systemPrompt, conversationHistory);
+      for await (const chunk of generator) {
+        fullText = chunk;
+        callbacks.onChunk(fullText);
+      }
+      callbacks.onDone(fullText);
+      return fullText;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error("Offline model error");
+      callbacks.onError(err);
+      throw err;
+    }
+  }
 
   try {
     const generator =
@@ -206,7 +225,13 @@ export async function streamChat(
 export async function sendMessage(
   options: ChatServiceOptions,
 ): Promise<string> {
-  const { apiKey, mode, systemPrompt, conversationHistory } = options;
+  const { apiKey, mode, systemPrompt, conversationHistory, isOnline } = options;
+
+  // If offline or no API key, use local model
+  if (!isOnline || !apiKey) {
+    const { sendOfflineMessage } = await import("@/lib/offline-ai");
+    return sendOfflineMessage(systemPrompt, conversationHistory);
+  }
 
   if (mode === "general") {
     // Use Gemini non-streaming

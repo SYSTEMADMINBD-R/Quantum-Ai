@@ -21,6 +21,13 @@ import {
   deleteConversation as deleteConversationDB,
 } from "@/lib/storage";
 import { streamChat } from "@/lib/chat-service";
+import { useConnection } from "@/hooks/use-connection";
+import type { OfflineModelState } from "@/lib/offline-ai";
+import {
+  getOfflineModelStatus,
+  onOfflineModelStatus,
+  preloadOfflineModel,
+} from "@/lib/offline-ai";
 
 interface QuantumAppState {
   settings: QuantumSettings;
@@ -36,6 +43,8 @@ interface QuantumAppState {
   sendMessage: (content: string) => Promise<void>;
   stopStreaming: () => void;
   isLoadingConversations: boolean;
+  offlineModelState: OfflineModelState;
+  isOnline: boolean;
 }
 
 const QuantumAppContext = createContext<QuantumAppState | null>(null);
@@ -60,16 +69,36 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
   );
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [offlineModelState, setOfflineModelState] = useState<OfflineModelState>(
+    getOfflineModelStatus,
+  );
+  const { isOnline } = useConnection();
   const abortRef = useRef<AbortController | null>(null);
 
   // Refs to avoid stale closures
   const convRef = useRef<Conversation | null>(null);
   const modeRef = useRef<AIMode>(currentMode);
   const settingsRef = useRef<QuantumSettings>(settings);
+  const isOnlineRef = useRef<boolean>(isOnline);
 
   useEffect(() => { convRef.current = currentConversation; }, [currentConversation]);
   useEffect(() => { modeRef.current = currentMode; }, [currentMode]);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
+  useEffect(() => { isOnlineRef.current = isOnline; }, [isOnline]);
+
+  // Subscribe to offline model status changes
+  useEffect(() => {
+    return onOfflineModelStatus(setOfflineModelState);
+  }, []);
+
+  // Pre-load offline model when online (so it's ready when user goes offline)
+  useEffect(() => {
+    if (isOnline && offlineModelState.status === "idle") {
+      // Delay pre-load to not block initial render
+      const timer = setTimeout(() => preloadOfflineModel(), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOnline, offlineModelState.status]);
 
   useEffect(() => {
     getAllConversations()
@@ -123,11 +152,15 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     async (content: string) => {
       const mode = modeRef.current;
       const currentSettings = settingsRef.current;
-      const modeLabel = mode === "general" ? "Gemini" : "Groq";
+      const online = isOnlineRef.current;
 
+      // Get API key — may be null when offline (that's OK, we'll use local model)
       const apiKey = getActiveApiKey(currentSettings, mode);
-      if (!apiKey) {
-        const msg = `No ${modeLabel} API key configured. Open Settings (⚙️) to add one.`;
+
+      // Only show "no API key" error if we're online AND the offline model isn't ready
+      if (!apiKey && online && offlineModelState.status !== "ready" && offlineModelState.status !== "downloading" && offlineModelState.status !== "loading") {
+        const modeLabel = mode === "general" ? "Gemini" : "Groq";
+        const msg = `No ${modeLabel} API key configured. Add one in Settings, or wait for the offline model to download.`;
         toast.error(msg);
         throw new Error(msg);
       }
@@ -190,6 +223,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
             mode,
             systemPrompt: currentSettings.systemPrompts[mode],
             conversationHistory: conv.messages,
+            isOnline: online,
           },
           {
             onChunk: (text) => {
@@ -237,7 +271,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
             },
             onError: (error) => {
               console.error("Stream error:", error);
-              toast.error(`API Error: ${error.message}`);
+              toast.error(`Error: ${error.message}`);
               const errorMsg: Message = {
                 id: generateId(),
                 role: "assistant",
@@ -265,7 +299,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [],
+    [offlineModelState.status],
   );
 
   const updateSettingsHandler = useCallback(
@@ -290,6 +324,8 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     sendMessage,
     stopStreaming,
     isLoadingConversations,
+    offlineModelState,
+    isOnline,
   };
 
   return (
