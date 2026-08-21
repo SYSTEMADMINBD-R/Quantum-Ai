@@ -28,6 +28,7 @@ export default function ChatApp() {
     isStreaming,
     sendMessage,
     stopStreaming,
+    offlineModelState,
   } = useQuantumApp();
   const { isOnline } = useConnection();
   const [input, setInput] = useState("");
@@ -38,6 +39,10 @@ export default function ChatApp() {
 
   const messages = currentConversation?.messages ?? [];
   const hasMessages = messages.length > 0;
+
+  // Can we send? Yes if online, OR if offline model is ready
+  const canSend =
+    (isOnline || offlineModelState.status === "ready") && input.trim().length > 0;
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -52,6 +57,7 @@ export default function ChatApp() {
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || isStreaming) return;
+    if (!canSend) return;
 
     setInput("");
     try {
@@ -66,6 +72,23 @@ export default function ChatApp() {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  // Determine placeholder text
+  const getPlaceholder = () => {
+    if (!isOnline && offlineModelState.status === "ready") {
+      return "Offline — using local AI model";
+    }
+    if (!isOnline && offlineModelState.status === "idle") {
+      return "Offline — go online first to download the AI model";
+    }
+    if (!isOnline && offlineModelState.status === "downloading") {
+      return "Offline — model is downloading...";
+    }
+    if (!isOnline) {
+      return "Offline — AI model not available";
+    }
+    return "Type your message…";
   };
 
   return (
@@ -184,14 +207,10 @@ export default function ChatApp() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={
-                  !isOnline
-                    ? "Offline — AI responses require an internet connection"
-                    : "Type your message…"
-                }
+                placeholder={getPlaceholder()}
                 rows={1}
                 className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[2.5rem] max-h-32 text-base placeholder:text-muted-foreground/40"
-                disabled={isStreaming}
+                disabled={isStreaming || (!isOnline && offlineModelState.status !== "ready")}
               />
               {isStreaming ? (
                 <Button
@@ -204,7 +223,7 @@ export default function ChatApp() {
               ) : (
                 <Button
                   onClick={handleSend}
-                  disabled={!input.trim() || !isOnline}
+                  disabled={!canSend || isStreaming}
                   size="icon"
                   className="h-9 w-9 shrink-0 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white disabled:opacity-20"
                 >
@@ -213,7 +232,10 @@ export default function ChatApp() {
               )}
             </div>
             <p className="text-xs text-muted-foreground/40 text-center mt-1.5">
-              Enter to send · Shift+Enter for newline
+              {!isOnline && offlineModelState.status !== "ready"
+                ? "Go online to download the offline AI model first"
+                : "Enter to send · Shift+Enter for newline"
+              }
             </p>
           </div>
         </div>
