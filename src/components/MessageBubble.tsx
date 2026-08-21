@@ -38,23 +38,23 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
       {/* Avatar */}
       <div
         className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
           isUser
             ? "bg-primary/10 text-primary"
             : `${modeConfig.iconBg} ${modeConfig.textClass}`,
         )}
       >
         {isUser ? (
-          <User className="h-4 w-4" />
+          <User className="h-4.5 w-4.5" />
         ) : (
-          <Bot className="h-4 w-4" />
+          <Bot className="h-4.5 w-4.5" />
         )}
       </div>
 
       {/* Message Content */}
       <div
         className={cn(
-          "relative max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
+          "relative max-w-[80%] md:max-w-[70%] rounded-2xl px-5 py-3.5 text-base leading-relaxed",
           isUser
             ? "bg-primary text-primary-foreground rounded-tr-sm"
             : "bg-muted/50 text-foreground rounded-tl-sm border border-border/30",
@@ -65,7 +65,7 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
           <div className="mb-2 flex items-center gap-1.5">
             <span
               className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
                 modeConfig.iconBg,
                 modeConfig.textClass,
               )}
@@ -73,7 +73,7 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
               {message.mode === "hacking" ? "🛡️" : "🧠"} {modeConfig.label}
             </span>
             {message.model && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 via {message.model}
               </span>
             )}
@@ -87,12 +87,12 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
         {!isUser && message.content && (
           <button
             onClick={copyToClipboard}
-            className="absolute -bottom-3 right-2 flex h-6 w-6 items-center justify-center rounded-md bg-muted opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent border border-border/50"
+            className="absolute -bottom-3 right-2 flex h-7 w-7 items-center justify-center rounded-md bg-muted opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent border border-border/50"
           >
             {copied ? (
-              <Check className="h-3 w-3 text-emerald-400" />
+              <Check className="h-3.5 w-3.5 text-emerald-400" />
             ) : (
-              <Copy className="h-3 w-3 text-muted-foreground" />
+              <Copy className="h-3.5 w-3.5 text-muted-foreground" />
             )}
           </button>
         )}
@@ -100,7 +100,7 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
         {/* Timestamp */}
         <div
           className={cn(
-            "mt-1.5 text-[10px]",
+            "mt-1.5 text-xs",
             isUser
               ? "text-primary-foreground/50"
               : "text-muted-foreground/50",

@@ -116,8 +116,24 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    font-size: 17px;
+  }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Override Tailwind's smallest text classes for better readability */
+  .text-xs {
+    font-size: 0.8125rem !important;
+    line-height: 1.5 !important;
+  }
+  .text-\[10px\] {
+    font-size: 0.8125rem !important;
+    line-height: 1.4 !important;
+  }
+  .text-\[9px\] {
+    font-size: 0.75rem !important;
+    line-height: 1.4 !important;
   }
   button:not([disabled]),
   [role="button"]:not([disabled]) {

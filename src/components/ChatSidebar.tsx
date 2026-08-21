@@ -48,32 +48,33 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className="h-8 w-8"
+          className="h-9 w-9"
         >
-          <PanelLeft className="h-4 w-4" />
+          <PanelLeft className="h-4.5 w-4.5" />
         </Button>
         <Separator />
         <Button
           variant="ghost"
           size="icon"
           onClick={() => createConversation()}
-          className="h-8 w-8"
+          className="h-9 w-9"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4.5 w-4.5" />
         </Button>
-        <div className="flex flex-col gap-1 mt-2">              {filteredConversations.slice(0, 10).map((conv) => (
+        <div className="flex flex-col gap-1 mt-2">
+          {filteredConversations.slice(0, 10).map((conv) => (
             <button
               key={conv.id}
               onClick={() => selectConversation(conv.id)}
               className={cn(
-                "h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
+                "h-9 w-9 rounded-lg flex items-center justify-center transition-colors",
                 currentConversation?.id === conv.id
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
               title={conv.title}
             >
-              <MessageSquare className="h-3.5 w-3.5" />
+              <MessageSquare className="h-4 w-4" />
             </button>
           ))}
         </div>
@@ -90,19 +91,19 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
     >
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border/30">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
-            <Zap className="h-3.5 w-3.5 text-cyan-400" />
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
+            <Zap className="h-4 w-4 text-cyan-400" />
           </div>
-          <Link to="/" className="text-sm font-semibold hover:text-cyan-400 transition-colors">Quantum AI</Link>
+          <Link to="/" className="text-base font-semibold hover:text-cyan-400 transition-colors">Quantum AI</Link>
         </div>
         <Button
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className="h-7 w-7"
+          className="h-8 w-8"
         >
-          <PanelLeftClose className="h-4 w-4" />
+          <PanelLeftClose className="h-4.5 w-4.5" />
         </Button>
       </div>
 
@@ -110,26 +111,26 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
       <div className="px-3 py-2">
         <div
           className={cn(
-            "flex items-center gap-2 rounded-lg px-3 py-2 text-xs",
+            "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm",
             MODE_CONFIG[currentMode].bgClass,
             MODE_CONFIG[currentMode].borderClass,
             "border",
           )}
         >
           {currentMode === "general" ? (
-            <Brain className="h-3.5 w-3.5 text-cyan-400" />
+            <Brain className="h-4 w-4 text-cyan-400" />
           ) : (
-            <Shield className="h-3.5 w-3.5 text-emerald-400" />
+            <Shield className="h-4 w-4 text-emerald-400" />
           )}
           <span className={cn("font-medium", MODE_CONFIG[currentMode].textClass)}>
             {MODE_CONFIG[currentMode].label}
           </span>
-          <span className="text-muted-foreground ml-auto">
+          <span className="text-muted-foreground ml-auto text-xs">
             {MODE_CONFIG[currentMode].model}
           </span>
         </div>
         {/* Server-side status */}
-        <div className="mt-1.5 px-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+        <div className="mt-1.5 px-1 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
           <span>API configured server-side</span>
         </div>
@@ -151,7 +152,8 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
 
       {/* Conversation List */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-0.5">              <AnimatePresence mode="popLayout">
+        <div className="p-2 space-y-0.5">
+          <AnimatePresence mode="popLayout">
             {filteredConversations.map((conv) => (
               <motion.div
                 key={conv.id}
@@ -165,16 +167,16 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
                   onMouseEnter={() => setHoveredId(conv.id)}
                   onMouseLeave={() => setHoveredId(null)}
                   className={cn(
-                    "group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                    "group flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
                     currentConversation?.id === conv.id
                       ? "bg-primary/10 text-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  <MessageSquare className="h-3.5 w-3.5 shrink-0" />
+                  <MessageSquare className="h-4 w-4 shrink-0" />
                   <span className="truncate flex-1">{conv.title}</span>
                   <span className={cn(
-                    "text-[9px] px-1 py-0.5 rounded shrink-0",
+                    "text-[10px] px-1.5 py-0.5 rounded shrink-0 font-medium",
                     conv.mode === "general"
                       ? "bg-cyan-500/15 text-cyan-400"
                       : "bg-emerald-500/15 text-emerald-400",
@@ -189,7 +191,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
                       }}
                       className="shrink-0 p-1 hover:bg-destructive/10 rounded text-destructive"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </button>
@@ -198,7 +200,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
           </AnimatePresence>
 
           {filteredConversations.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground text-xs">
+            <div className="text-center py-8 text-muted-foreground text-sm">
               <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
               <p>No conversations yet</p>
               <p className="mt-1">Start a new one above</p>
@@ -209,8 +211,8 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
 
       {/* Footer credit */}
       <div className="border-t border-border/30 px-3 py-2.5">
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
-          <Code2 className="h-3 w-3" />
+        <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+          <Code2 className="h-3.5 w-3.5" />
           <span>Made by <span className="text-cyan-400/70 font-medium">RAGIB</span></span>
         </div>
       </div>

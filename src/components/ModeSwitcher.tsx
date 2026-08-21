@@ -13,35 +13,35 @@ export function ModeSwitcher() {
         <button
           onClick={() => setMode("general")}
           className={cn(
-            "relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300",
+            "relative flex items-center gap-2 px-4 py-2 rounded-lg text-base font-medium transition-all duration-300",
             currentMode === "general"
               ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 shadow-lg shadow-cyan-500/10"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
-          <Brain className="h-4 w-4" />
+          <Brain className="h-4.5 w-4.5" />
           <span className="hidden sm:inline">General</span>
           {currentMode === "general" && (
-            <Zap className="h-3 w-3 text-cyan-400/60" />
+            <Zap className="h-3.5 w-3.5 text-cyan-400/60" />
           )}
         </button>
         <button
           onClick={() => setMode("hacking")}
           className={cn(
-            "relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300",
+            "relative flex items-center gap-2 px-4 py-2 rounded-lg text-base font-medium transition-all duration-300",
             currentMode === "hacking"
               ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 text-emerald-400 shadow-lg shadow-emerald-500/10"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
-          <Shield className="h-4 w-4" />
+          <Shield className="h-4.5 w-4.5" />
           <span className="hidden sm:inline">Hacking</span>
           {currentMode === "hacking" && (
-            <Zap className="h-3 w-3 text-emerald-400/60" />
+            <Zap className="h-3.5 w-3.5 text-emerald-400/60" />
           )}
         </button>
       </div>
-      <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
         <span className={cn("font-medium", config.textClass)}>
           {config.model}
         </span>
