@@ -88,12 +88,12 @@ async function ensureModel() {
 
 function buildPrompt(systemPrompt: string, messages: Message[]): string {
   const parts: string[] = [];
-  parts.push('<|im_start|>/system\n' + systemPrompt + '<|im_end|>\n');
+  parts.push('<|im_start|>system\n' + systemPrompt + '<|im_end|>\n');
   for (const msg of messages) {
     const role = msg.role === 'user' ? 'user' : 'assistant';
-    parts.push('<|im_start|>/' + role + '\n' + msg.content + '<|im_end|>\n');
+    parts.push('<|im_start|>' + role + '\n' + msg.content + '<|im_end|>\n');
   }
-  parts.push('<|im_start|>/assistant\n');
+  parts.push('<|im_start|>assistant\n');
   return parts.join('');
 }
 
