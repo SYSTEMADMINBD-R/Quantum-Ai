@@ -66,9 +66,16 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] =
     useState<Conversation | null>(null);
-  const [currentMode, setCurrentMode] = useState<AIMode>(
+  const [currentMode, _setCurrentMode] = useState<AIMode>(
     settings.defaultMode,
   );
+
+  // Switching mode clears the current conversation so histories stay separate
+  const setCurrentMode = useCallback((mode: AIMode) => {
+    _setCurrentMode(mode);
+    setCurrentConversation(null);
+    convRef.current = null;
+  }, []);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [offlineModelState, setOfflineModelState] = useState<OfflineModelState>(
@@ -135,7 +142,8 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
       if (conv) {
         setCurrentConversation(conv);
         convRef.current = conv;
-        setCurrentMode(conv.mode);
+        // Update mode without clearing conversation
+        _setCurrentMode(conv.mode);
       }
       return prev;
     });
@@ -314,7 +322,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     settings,
     updateSettings: updateSettingsHandler,
     currentMode,
-    setMode: setCurrentMode,
+    setMode: setCurrentMode as (mode: AIMode) => void,
     conversations,
     currentConversation,
     createConversation,

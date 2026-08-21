@@ -1,5 +1,5 @@
 import { useQuantumApp } from "@/hooks/use-quantum-app";
-import { MODE_CONFIG } from "@/types/quantum";
+import { MODE_CONFIG, type AIMode } from "@/types/quantum";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,7 +16,7 @@ import {
   Code2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 interface ChatSidebarProps {
   collapsed: boolean;
@@ -33,6 +33,12 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
     currentMode,
   } = useQuantumApp();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  // Filter conversations by current mode
+  const filteredConversations = useMemo(
+    () => conversations.filter((c) => c.mode === currentMode),
+    [conversations, currentMode],
+  );
 
   if (collapsed) {
     return (
@@ -54,8 +60,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
         >
           <Plus className="h-4 w-4" />
         </Button>
-        <div className="flex flex-col gap-1 mt-2">
-          {conversations.slice(0, 10).map((conv) => (
+        <div className="flex flex-col gap-1 mt-2">              {filteredConversations.slice(0, 10).map((conv) => (
             <button
               key={conv.id}
               onClick={() => selectConversation(conv.id)}
@@ -145,9 +150,8 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
 
       {/* Conversation List */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-0.5">
-          <AnimatePresence mode="popLayout">
-            {conversations.map((conv) => (
+        <div className="p-2 space-y-0.5">              <AnimatePresence mode="popLayout">
+            {filteredConversations.map((conv) => (
               <motion.div
                 key={conv.id}
                 layout
@@ -168,6 +172,14 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
                 >
                   <MessageSquare className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate flex-1">{conv.title}</span>
+                  <span className={cn(
+                    "text-[9px] px-1 py-0.5 rounded shrink-0",
+                    conv.mode === "general"
+                      ? "bg-cyan-500/15 text-cyan-400"
+                      : "bg-emerald-500/15 text-emerald-400",
+                  )}>
+                    {conv.mode === "general" ? "Gen" : "Hack"}
+                  </span>
                   {hoveredId === conv.id && (
                     <button
                       onClick={(e) => {
@@ -184,7 +196,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
             ))}
           </AnimatePresence>
 
-          {conversations.length === 0 && (
+          {filteredConversations.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-xs">
               <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
               <p>No conversations yet</p>
