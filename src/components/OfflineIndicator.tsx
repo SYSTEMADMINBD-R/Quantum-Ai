@@ -9,7 +9,7 @@ export function OfflineIndicator() {
   const { offlineModelState } = useQuantumApp();
 
   const modelReady = offlineModelState.status === "ready";
-  const modelDownloading = offlineModelState.status === "downloading" || offlineModelState.status === "loading";
+  const modelDownloading = false;
   const modelError = offlineModelState.status === "error";
   const modelIdle = offlineModelState.status === "idle";
 
@@ -42,23 +42,6 @@ export function OfflineIndicator() {
             <WifiOff className="h-4 w-4 shrink-0" />
             <span>
               Offline — download the offline model while online to chat without internet
-            </span>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Offline — model downloading */}
-      {!isOnline && modelDownloading && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          className="overflow-hidden"
-        >
-          <div className="flex items-center justify-center gap-2 bg-cyan-500/10 border-b border-cyan-500/20 px-4 py-2 text-sm text-cyan-400">
-            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-            <span>
-              Offline — model downloading {offlineModelState.progress !== undefined ? `(${Math.round(offlineModelState.progress)}%)` : ""}
             </span>
           </div>
         </motion.div>

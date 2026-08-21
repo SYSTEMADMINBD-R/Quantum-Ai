@@ -82,7 +82,7 @@ export default function ChatApp() {
     if (!isOnline && offlineModelState.status === "idle") {
       return "Offline — go online first to download the AI model";
     }
-    if (!isOnline && offlineModelState.status === "downloading") {
+    if (!isOnline && false) {
       return "Offline — model is downloading...";
     }
     if (!isOnline) {
