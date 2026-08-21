@@ -1,7 +1,7 @@
 /**
  * Offline AI Service — Runs a real language model directly in the browser.
  * Uses Hugging Face Transformers.js with WebAssembly backend.
- * No internet required after initial model download (~400MB, cached in browser).
+ * No internet required after initial model download (~25MB, cached in browser).
  */
 
 import type { Message } from "@/types/quantum";
@@ -28,7 +28,7 @@ let currentStatus: OfflineModelState = {
   status: "idle",
   progress: 0,
   error: null,
-  modelSize: "~400MB",
+  modelSize: "~25MB",
 };
 
 type StatusListener = (state: OfflineModelState) => void;
@@ -69,14 +69,13 @@ async function ensureModel() {
       env.allowLocalModels = true;
       env.useBrowserCache = true;
 
-      // Use Xenova's quantized ONNX model — optimized for browser inference
-      // Qwen2-0.5B-Instruct: small, fast, chat-capable model
-      const modelId = "Xenova/Qwen2-0.5B-Instruct";
+      // Use Xenova's chat model — freely accessible, no HF auth needed
+      // Qwen1.5-0.5B-Chat: small, fast, chat-capable model
+      const modelId = "Xenova/Qwen1.5-0.5B-Chat";
 
       updateStatus({ status: "downloading", progress: 5 });
 
       const generator = await pipeline("text-generation", modelId, {
-        dtype: "q4" as any, // 4-bit quantized for small size
         progress_callback: (data: any) => {
           if (data.status === "progress" && data.progress !== undefined) {
             updateStatus({
@@ -116,12 +115,12 @@ export async function* streamOfflineChat(
 
   // Build a chat prompt from the message history
   const promptParts: string[] = [
-    `<|system|>\n${systemPrompt}<|end|>\n`,
+    `im_start/system\n${systemPrompt}im_end\n`,
   ];
 
   for (const msg of messages) {
     const role = msg.role === "user" ? "user" : "assistant";
-    promptParts.push(`<|${role}|>\n${msg.content}<|end|>\n`);
+    promptParts.push(`<|${role}|>\n${msg.content}im_end\n`);
   }
 
   promptParts.push("<|assistant|>\n");
@@ -130,7 +129,7 @@ export async function* streamOfflineChat(
 
   // Generate response with streaming-like token delivery
   const result = await generator(prompt, {
-    max_new_tokens: 1024,
+    max_new_tokens: 512,
     temperature: 0.7,
     top_p: 0.9,
     do_sample: true,
@@ -161,18 +160,18 @@ export async function sendOfflineMessage(
   const generator = await ensureModel();
 
   const promptParts: string[] = [
-    `<|system|>\n${systemPrompt}<|end|>\n`,
+    `im_start/system\n${systemPrompt}im_end\n`,
   ];
 
   for (const msg of messages) {
     const role = msg.role === "user" ? "user" : "assistant";
-    promptParts.push(`<|${role}|>\n${msg.content}<|end|>\n`);
+    promptParts.push(`<|${role}|>\n${msg.content}im_end\n`);
   }
 
   promptParts.push("<|assistant|>\n");
 
   const result = await generator(promptParts.join(""), {
-    max_new_tokens: 1024,
+    max_new_tokens: 512,
     temperature: 0.7,
     top_p: 0.9,
     do_sample: true,
