@@ -24,6 +24,20 @@ function getConvexClient(): ConvexHttpClient {
 }
 
 /**
+ * Diagnostic — check how many API keys are configured in Convex env vars.
+ * Returns a status object with counts (no key values exposed).
+ */
+export async function checkApiKeys(): Promise<{
+  gemini: { count: number; keyPreview: string[] };
+  groq: { count: number; keyPreview: string[] };
+  status: { geminiReady: boolean; groqReady: boolean; message: string };
+}> {
+  const client = getConvexClient();
+  const result = await client.action(api.diagnostics.checkApiKeys, {});
+  return result as { gemini: { count: number; keyPreview: string[] }; groq: { count: number; keyPreview: string[] }; status: { geminiReady: boolean; groqReady: boolean; message: string } };
+}
+
+/**
  * Call a Convex action and extract the string result.
  * Handles various return formats the SDK might produce.
  */

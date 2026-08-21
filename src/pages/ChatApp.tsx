@@ -17,6 +17,9 @@ import {
   PanelLeft,
   WifiOff,
   Loader2,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function ChatApp() {
@@ -29,6 +32,7 @@ export default function ChatApp() {
   const { isOnline } = useConnection();
   const [input, setInput] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [diagResult, setDiagResult] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -103,9 +107,45 @@ export default function ChatApp() {
                 Offline
               </div>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const { checkApiKeys } = await import("@/lib/chat-service");
+                  const result = await checkApiKeys();
+                  setDiagResult(
+                    result.status.message +
+                    "\n\nGemini keys: " + result.gemini.count +
+                    (result.gemini.keyPreview.length > 0 ? " (" + result.gemini.keyPreview.join(", ") + ")" : "") +
+                    "\nGroq keys: " + result.groq.count +
+                    (result.groq.keyPreview.length > 0 ? " (" + result.groq.keyPreview.join(", ") + ")" : "")
+                  );
+                } catch (e) {
+                  setDiagResult("Error: " + (e instanceof Error ? e.message : String(e)));
+                }
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground gap-1"
+            >
+              <CheckCircle2 className="h-3 w-3" />
+              Check Keys
+            </Button>
             <SettingsDialog />
           </div>
         </header>
+
+        {/* Diagnostic Banner */}
+        {diagResult && (
+          <div className="mx-4 mt-2 p-3 rounded-lg bg-muted/50 border border-border/30 text-xs whitespace-pre-wrap">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-medium text-foreground">API Key Diagnostics</span>
+              <button onClick={() => setDiagResult(null)} className="text-muted-foreground hover:text-foreground">
+                ✕
+              </button>
+            </div>
+            <pre className="text-muted-foreground overflow-x-auto">{diagResult}</pre>
+          </div>
+        )}
 
         {/* Chat Area */}
         {hasMessages ? (
