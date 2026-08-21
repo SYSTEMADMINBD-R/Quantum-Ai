@@ -1,16 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Zap, ArrowLeft, Home } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
 
 export default function NotFound() {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 mb-5">
+      <Link to="/" className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 mb-5 hover:opacity-80 transition-opacity">
         <Zap className="h-6 w-6 text-white" />
-      </div>
+      </Link>
       <h1 className="text-3xl font-bold mb-1 tracking-tight">404</h1>
+      <Link to="/" className="text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors mb-2">Quantum AI</Link>
       <p className="text-sm text-muted-foreground mb-6">
         This page does not exist.
       </p>

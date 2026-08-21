@@ -14,7 +14,7 @@ import {
   Clock,
   ExternalLink,
 } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
 import { CATALOG_ITEMS } from "@/data/catalog";
 import { MODE_CONFIG } from "@/types/quantum";
 import { motion } from "framer-motion";
@@ -36,9 +36,9 @@ export default function Dashboard() {
       <header className="border-b border-border/30 bg-background/80 backdrop-blur-md sticky top-0 z-10">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/")}
-              className="flex items-center gap-2.5"
+            <Link
+              to="/"
+              className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
                 <Zap className="h-3.5 w-3.5 text-white" />
@@ -46,7 +46,7 @@ export default function Dashboard() {
               <span className="text-sm font-semibold tracking-tight">
                 Quantum AI
               </span>
-            </button>
+            </Link>
             <span className="text-[10px] text-muted-foreground/50 border-l border-border/30 pl-3 ml-1">
               Dashboard
             </span>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Link } from "react-router";
 import { useQuantumApp } from "@/hooks/use-quantum-app";
 import { MODE_CONFIG } from "@/types/quantum";
 import { hasApiKeys } from "@/lib/settings-storage";
@@ -27,9 +28,9 @@ export function WelcomeScreen() {
       </div>
 
       {/* Title */}
-      <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-2">
+      <Link to="/" className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-2 hover:opacity-80 transition-opacity">
         Quantum AI
-      </h1>
+      </Link>
       <p className="text-sm font-medium text-cyan-400 mb-1">
         {config.label} — {config.description}
       </p>

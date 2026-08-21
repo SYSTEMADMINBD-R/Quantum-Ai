@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useQuantumApp } from "@/hooks/use-quantum-app";
 import { MODE_CONFIG, type AIMode } from "@/types/quantum";
 import { cn } from "@/lib/utils";
@@ -93,7 +94,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
             <Zap className="h-3.5 w-3.5 text-cyan-400" />
           </div>
-          <span className="text-sm font-semibold">Quantum AI</span>
+          <Link to="/" className="text-sm font-semibold hover:text-cyan-400 transition-colors">Quantum AI</Link>
         </div>
         <Button
           variant="ghost"

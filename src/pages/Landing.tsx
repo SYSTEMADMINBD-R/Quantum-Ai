@@ -21,7 +21,7 @@ import {
   User,
   Code2,
 } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -85,9 +85,9 @@ export default function Landing() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
             <Zap className="h-4 w-4 text-white" />
           </div>
-          <span className="text-sm font-semibold tracking-tight">
+          <Link to="/" className="text-sm font-semibold tracking-tight hover:text-cyan-400 transition-colors">
             Quantum AI
-          </span>
+          </Link>
         </div>
         <div className="flex items-center gap-2">
           <Button
