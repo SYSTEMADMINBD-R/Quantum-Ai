@@ -93,21 +93,22 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").then((reg) => {
       console.log("[PWA] Service worker registered");
 
-      // Tell the SW to cache ALL resources loaded by this page
-      // (JS bundles, CSS, fonts, images — everything the browser fetched)
-      const sendCachedResources = () => {
-        const resources = performance.getEntriesByType("resource")
+      // Collect all same-origin resource URLs loaded by the page
+      const getLoadedResources = () => {
+        return performance.getEntriesByType("resource")
           .map((r) => (r as PerformanceResourceTiming).name)
           .filter((url) => {
             try {
               const u = new URL(url);
-              // Only cache same-origin resources (our JS/CSS/assets)
               return u.origin === window.location.origin && !u.pathname.includes("@vly") && !u.pathname.includes("convex.cloud") && !u.pathname.includes("convex.site");
             } catch {
               return false;
             }
           });
+      };
 
+      const sendCachedResources = () => {
+        const resources = getLoadedResources();
         if (resources.length > 0 && reg.active) {
           console.log("[PWA] Sending", resources.length, "resource URLs to SW for caching");
           reg.active.postMessage({
@@ -117,10 +118,18 @@ if ("serviceWorker" in navigator) {
         }
       };
 
-      // Cache resources after a short delay (to let lazy-loaded routes finish)
+      // Send resources quickly — let lazy chunks accumulate first
+      setTimeout(sendCachedResources, 1500);
       setTimeout(sendCachedResources, 5000);
-      // And again after a longer delay (for late-loaded chunks)
-      setTimeout(sendCachedResources, 15000);
+      setTimeout(sendCachedResources, 12000);
+
+      // When the SW activates and asks for resources, respond immediately
+      navigator.serviceWorker.addEventListener("message", (event) => {
+        if (event.data?.type === "REQUEST_RESOURCES") {
+          console.log("[PWA] SW requested resources — sending");
+          sendCachedResources();
+        }
+      });
     }).catch((err) => {
       console.warn("SW registration failed:", err);
     });
