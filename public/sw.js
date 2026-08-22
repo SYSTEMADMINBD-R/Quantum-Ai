@@ -1,17 +1,19 @@
 /// <reference lib="webworker" />
 /**
  * Quantum AI Service Worker — PWA offline caching.
- * Caches all app assets so the app loads without internet.
- * Also caches model files from Hugging Face for offline AI.
+ * Pre-caches the app shell (index.html + critical assets) and
+ * runtime-caches all Vite-built JS/CSS bundles so the app loads offline.
  */
 
-const CACHE_NAME = "quantum-ai-v1";
+const CACHE_NAME = "quantum-ai-v2";
 const MODEL_CACHE = "quantum-ai-models";
 
-// App shell assets to pre-cache
+// Critical app shell — must be available offline
 const APP_SHELL = [
   "/",
   "/app",
+  "/auth",
+  "/index.html",
   "/manifest.webmanifest",
   "/logo.svg",
 ];
@@ -42,62 +44,97 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch — network first for API calls, cache first for assets
+// Fetch strategy
 self.addEventListener("fetch", (event) => {
   const fetchEvent = event as FetchEvent;
   const url = new URL(fetchEvent.request.url);
 
-  // Skip non-GET requests
+  // Only handle GET
   if (fetchEvent.request.method !== "GET") return;
 
-  // API calls — network only (Gemini, Groq, etc.)
+  // External API calls — network only (never cache)
   if (
     url.hostname.includes("googleapis.com") ||
     url.hostname.includes("groq.com") ||
-    url.hostname.includes("huggingface.co")
+    url.hostname.includes("convex.cloud") ||
+    url.hostname.includes("convex.site")
   ) {
-    // For Hugging Face model files, cache them for offline use
-    if (url.hostname.includes("huggingface.co")) {
-      fetchEvent.respondWith(
-        caches.open(MODEL_CACHE).then((cache) =>
-          cache.match(fetchEvent.request).then((cached) => {
-            if (cached) return cached;
-            return fetch(fetchEvent.request).then((response) => {
+    return; // Let browser handle normally (network only)
+  }
+
+  // Hugging Face model files — cache for offline
+  if (url.hostname.includes("huggingface.co")) {
+    fetchEvent.respondWith(
+      caches.open(MODEL_CACHE).then((cache) =>
+        cache.match(fetchEvent.request).then((cached) => {
+          if (cached) return cached;
+          return fetch(fetchEvent.request)
+            .then((response) => {
               if (response.ok) {
                 cache.put(fetchEvent.request, response.clone());
               }
               return response;
-            }).catch(() => new Response("Offline — model file not cached", { status: 503 }));
-          }),
-        ),
-      );
-      return;
-    }
-
-    // Other API calls — network only
+            })
+            .catch(() => new Response("Offline — model file not cached", { status: 503 }));
+        }),
+      ),
+    );
     return;
   }
 
-  // Static assets — cache first, network fallback
+  // Navigation requests (page loads) — cache-first, fallback to cached index.html
+  if (fetchEvent.request.mode === "navigate") {
+    fetchEvent.respondWith(
+      caches.match(fetchEvent.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(fetchEvent.request)
+          .then((response) => {
+            // Cache successful navigation responses
+            if (response.ok) {
+              const clone = response.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(fetchEvent.request, clone);
+              });
+            }
+            return response;
+          })
+          .catch(() => {
+            // Offline: serve cached index.html so React Router can handle routing
+            return caches.match("/index.html").then((cachedIndex) => {
+              return cachedIndex || new Response("Offline — please connect to the internet to load the app for the first time.", {
+                status: 503,
+                headers: { "Content-Type": "text/html" },
+              });
+            });
+          });
+      }),
+    );
+    return;
+  }
+
+  // All other requests (JS, CSS, images, fonts, etc.) — cache first, network fallback
   fetchEvent.respondWith(
     caches.match(fetchEvent.request).then((cached) => {
       if (cached) return cached;
 
       return fetch(fetchEvent.request)
         .then((response) => {
-          // Cache successful responses
+          // Only cache same-origin successful responses
           if (response.ok && url.origin === self.location.origin) {
-            const cloned = response.clone();
+            const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(fetchEvent.request, cloned);
+              cache.put(fetchEvent.request, clone);
             });
           }
           return response;
         })
         .catch(() => {
-          // Offline fallback for navigation
-          if (fetchEvent.request.mode === "navigate") {
-            return caches.match("/app");
+          // If it's an image, return a placeholder
+          if (fetchEvent.request.destination === "image") {
+            return new Response(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text x="10" y="50" fill="#888">Offline</text></svg>',
+              { headers: { "Content-Type": "image/svg+xml" } },
+            );
           }
           return new Response("Offline", { status: 503 });
         });
