@@ -131,6 +131,31 @@ export async function streamChat(
     return fullText;
   } catch (error) {
     const err = error instanceof Error ? error : new Error("Unknown streaming error");
+    const isNetworkError =
+      err.message.includes("Failed to fetch") ||
+      err.message.includes("NetworkError") ||
+      err.message.includes("network") ||
+      err.message.includes("TypeError") ||
+      err.name === "TypeError" ||
+      err.name === "AbortError";
+
+    // If it's a network error, fall back to offline AI instead of failing
+    if (isNetworkError) {
+      console.warn("[Quantum AI] Online API failed (network error), falling back to offline AI");
+      try {
+        fullText = "";
+        const generator = streamOfflineChat(systemPrompt, conversationHistory);
+        for await (const chunk of generator) {
+          fullText = chunk;
+          callbacks.onChunk(fullText);
+        }
+        callbacks.onDone(fullText);
+        return fullText;
+      } catch (offlineError) {
+        console.error("[Quantum AI] Offline fallback also failed:", offlineError);
+      }
+    }
+
     console.error("[Quantum AI] Stream error:", err);
     callbacks.onError(err);
     throw err;
