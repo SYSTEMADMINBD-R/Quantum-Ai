@@ -90,7 +90,38 @@ const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 // Register service worker for PWA offline support
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch((err) => {
+    navigator.serviceWorker.register("/sw.js").then((reg) => {
+      console.log("[PWA] Service worker registered");
+
+      // Tell the SW to cache ALL resources loaded by this page
+      // (JS bundles, CSS, fonts, images — everything the browser fetched)
+      const sendCachedResources = () => {
+        const resources = performance.getEntriesByType("resource")
+          .map((r) => (r as PerformanceResourceTiming).name)
+          .filter((url) => {
+            try {
+              const u = new URL(url);
+              // Only cache same-origin resources (our JS/CSS/assets)
+              return u.origin === window.location.origin && !u.pathname.includes("@vly") && !u.pathname.includes("convex.cloud") && !u.pathname.includes("convex.site");
+            } catch {
+              return false;
+            }
+          });
+
+        if (resources.length > 0 && reg.active) {
+          console.log("[PWA] Sending", resources.length, "resource URLs to SW for caching");
+          reg.active.postMessage({
+            type: "CACHE_LOADED_RESOURCES",
+            urls: resources,
+          });
+        }
+      };
+
+      // Cache resources after a short delay (to let lazy-loaded routes finish)
+      setTimeout(sendCachedResources, 5000);
+      // And again after a longer delay (for late-loaded chunks)
+      setTimeout(sendCachedResources, 15000);
+    }).catch((err) => {
       console.warn("SW registration failed:", err);
     });
   });
