@@ -92,9 +92,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border/30">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
-            <Zap className="h-4 w-4 text-cyan-400" />
-          </div>
+          <img src="/logo.svg" alt="Quantum AI" className="h-8 w-8 rounded-lg" />
           <Link to="/" className="text-base font-semibold hover:text-cyan-400 transition-colors">Quantum AI</Link>
         </div>
         <Button

@@ -17,10 +17,8 @@ export function WelcomeScreen() {
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
       {/* Logo */}
       <div className="relative mb-6">
-        <div
-          className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${config.color} flex items-center justify-center shadow-lg shadow-cyan-500/20`}
-        >
-          <Brain className="h-12 w-12 text-white" />
+        <div className="w-24 h-24 rounded-2xl shadow-lg shadow-cyan-500/20 overflow-hidden">
+          <img src="/logo.svg" alt="Quantum AI" className="w-full h-full" />
         </div>
         <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-[#0c1017] flex items-center justify-center">
           <Zap className="h-3 w-3 text-white" />
