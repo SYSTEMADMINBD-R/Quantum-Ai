@@ -18,8 +18,6 @@ import {
   WifiOff,
   Loader2,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
 } from "lucide-react";
 
 export default function ChatApp() {
@@ -32,15 +30,29 @@ export default function ChatApp() {
   } = useQuantumApp();
   const { isOnline } = useConnection();
   const [input, setInput] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [diagResult, setDiagResult] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const messages = currentConversation?.messages ?? [];
   const hasMessages = messages.length > 0;
 
-  // Can we send? Yes if online, OR if offline model is ready
+  // Detect mobile
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Close mobile sidebar when conversation changes
+  useEffect(() => {
+    if (isMobile) setMobileMenuOpen(false);
+  }, [currentConversation?.id, isMobile]);
+
   const canSend =
     (isOnline || offlineModelState.status === "ready") && input.trim().length > 0;
 
@@ -58,7 +70,6 @@ export default function ChatApp() {
     const trimmed = input.trim();
     if (!trimmed || isStreaming) return;
     if (!canSend) return;
-
     setInput("");
     try {
       await sendMessage(trimmed);
@@ -74,16 +85,12 @@ export default function ChatApp() {
     }
   };
 
-  // Determine placeholder text
   const getPlaceholder = () => {
     if (!isOnline && offlineModelState.status === "ready") {
       return "Offline — using local AI model";
     }
     if (!isOnline && offlineModelState.status === "idle") {
       return "Offline — go online first to download the AI model";
-    }
-    if (!isOnline && false) {
-      return "Offline — model is downloading...";
     }
     if (!isOnline) {
       return "Offline — AI model not available";
@@ -93,15 +100,59 @@ export default function ChatApp() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      {/* Sidebar */}
-      <AnimatePresence mode="wait">
-        {sidebarCollapsed ? null : (
-          <ChatSidebar
-            collapsed={false}
-            onToggle={() => setSidebarCollapsed(true)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Desktop sidebar — always visible on md+ */}
+      {!isMobile && (
+        <AnimatePresence mode="wait">
+          {sidebarOpen ? (
+            <ChatSidebar
+              collapsed={false}
+              onToggle={() => setSidebarOpen(false)}
+            />
+          ) : (
+            <div className="flex flex-col items-center w-12 border-r border-border/30 bg-muted/20 py-3 gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebarOpen(true)}
+                className="h-10 w-10"
+              >
+                <PanelLeft className="h-5 w-5" />
+              </Button>
+            </div>
+          )}
+        </AnimatePresence>
+      )}
+
+      {/* Mobile sidebar — overlay drawer */}
+      {isMobile && (
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+              {/* Drawer */}
+              <motion.div
+                initial={{ x: -300 }}
+                animate={{ x: 0 }}
+                exit={{ x: -300 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="fixed inset-y-0 left-0 z-50 w-[280px]"
+              >
+                <ChatSidebar
+                  collapsed={false}
+                  onToggle={() => setMobileMenuOpen(false)}
+                />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Main Area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -109,27 +160,40 @@ export default function ChatApp() {
         <OfflineIndicator />
 
         {/* Header */}
-        <header className="flex items-center justify-between px-4 py-2.5 border-b border-border/30 bg-background/80 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            {sidebarCollapsed && (
+        <header className="flex items-center justify-between px-3 md:px-4 py-2 md:py-2.5 border-b border-border/30 bg-background/80 backdrop-blur-md">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Mobile: hamburger menu */}
+            {isMobile ? (
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setSidebarCollapsed(false)}
-                className="h-9 w-9"
+                onClick={() => setMobileMenuOpen(true)}
+                className="h-10 w-10"
               >
-                <PanelLeft className="h-4.5 w-4.5" />
+                <PanelLeft className="h-5 w-5" />
               </Button>
+            ) : (
+              !sidebarOpen && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSidebarOpen(true)}
+                  className="h-10 w-10"
+                >
+                  <PanelLeft className="h-5 w-5" />
+                </Button>
+              )
             )}
             <ModeSwitcher />
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 md:gap-1.5">
             {!isOnline && (
-              <div className="flex items-center gap-1.5 text-xs text-amber-400/80 bg-amber-500/8 px-2.5 py-1.5 rounded-md">
+              <div className="flex items-center gap-1.5 text-xs text-amber-400/80 bg-amber-500/8 px-2 py-1.5 rounded-md">
                 <WifiOff className="h-3.5 w-3.5" />
-                Offline
+                <span className="hidden sm:inline">Offline</span>
               </div>
             )}
+            {/* Check Keys — icon only on mobile */}
             <Button
               variant="ghost"
               size="sm"
@@ -148,10 +212,10 @@ export default function ChatApp() {
                   setDiagResult("Error: " + (e instanceof Error ? e.message : String(e)));
                 }
               }}
-              className="text-sm text-muted-foreground hover:text-foreground gap-1.5"
+              className="text-sm text-muted-foreground hover:text-foreground gap-1.5 h-10"
             >
               <CheckCircle2 className="h-4 w-4" />
-              Check Keys
+              <span className="hidden sm:inline">Check Keys</span>
             </Button>
             <SettingsDialog />
           </div>
@@ -159,21 +223,21 @@ export default function ChatApp() {
 
         {/* Diagnostic Banner */}
         {diagResult && (
-          <div className="mx-4 mt-2 p-3.5 rounded-lg bg-muted/50 border border-border/30 text-sm whitespace-pre-wrap">
+          <div className="mx-3 md:mx-4 mt-2 p-3 md:p-3.5 rounded-lg bg-muted/50 border border-border/30 text-sm whitespace-pre-wrap">
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-medium text-foreground">API Key Diagnostics</span>
-              <button onClick={() => setDiagResult(null)} className="text-muted-foreground hover:text-foreground">
+              <button onClick={() => setDiagResult(null)} className="text-muted-foreground hover:text-foreground p-1">
                 ✕
               </button>
             </div>
-            <pre className="text-muted-foreground overflow-x-auto">{diagResult}</pre>
+            <pre className="text-muted-foreground overflow-x-auto text-xs md:text-sm">{diagResult}</pre>
           </div>
         )}
 
         {/* Chat Area */}
         {hasMessages ? (
           <ScrollArea className="flex-1 min-h-0">
-            <div className="max-w-3xl mx-auto py-4">
+            <div className="max-w-3xl mx-auto py-3 md:py-4 px-1">
               {messages.map((msg, i) => (
                 <MessageBubble
                   key={msg.id}
@@ -199,9 +263,9 @@ export default function ChatApp() {
         )}
 
         {/* Input Area */}
-        <div className="border-t border-border/30 bg-background/80 backdrop-blur-md p-3">
+        <div className="border-t border-border/30 bg-background/80 backdrop-blur-md p-2.5 md:p-3">
           <div className="max-w-3xl mx-auto">
-            <div className="relative flex items-end gap-2 rounded-xl border border-border/40 bg-muted/20 p-2 focus-within:border-primary/40 transition-colors">
+            <div className="relative flex items-end gap-2 rounded-xl border border-border/40 bg-muted/20 p-1.5 md:p-2 focus-within:border-primary/40 transition-colors">
               <Textarea
                 ref={textareaRef}
                 value={input}
@@ -209,14 +273,14 @@ export default function ChatApp() {
                 onKeyDown={handleKeyDown}
                 placeholder={getPlaceholder()}
                 rows={1}
-                className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[2.5rem] max-h-32 text-base placeholder:text-muted-foreground/40"
+                className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[2.75rem] md:min-h-[2.5rem] max-h-32 text-base placeholder:text-muted-foreground/40 py-2"
                 disabled={isStreaming || (!isOnline && offlineModelState.status !== "ready")}
               />
               {isStreaming ? (
                 <Button
                   onClick={stopStreaming}
                   size="icon"
-                  className="h-9 w-9 shrink-0 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300"
+                  className="h-10 w-10 md:h-9 md:w-9 shrink-0 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300"
                 >
                   <Square className="h-4 w-4" />
                 </Button>
@@ -225,16 +289,18 @@ export default function ChatApp() {
                   onClick={handleSend}
                   disabled={!canSend || isStreaming}
                   size="icon"
-                  className="h-9 w-9 shrink-0 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white disabled:opacity-20"
+                  className="h-10 w-10 md:h-9 md:w-9 shrink-0 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white disabled:opacity-20"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               )}
             </div>
-            <p className="text-xs text-muted-foreground/40 text-center mt-1.5">
+            <p className="text-[11px] md:text-xs text-muted-foreground/40 text-center mt-1.5 px-2">
               {!isOnline && offlineModelState.status !== "ready"
                 ? "Go online to download the offline AI model first"
-                : "Enter to send · Shift+Enter for newline"
+                : isMobile
+                  ? "Tap send · Return for newline"
+                  : "Enter to send · Shift+Enter for newline"
               }
             </p>
           </div>

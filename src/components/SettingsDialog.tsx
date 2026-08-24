@@ -22,12 +22,12 @@ export function SettingsDialog() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 text-slate-400 hover:text-slate-200 hover:bg-white/5"
+          className="h-10 w-10 text-slate-400 hover:text-slate-200 hover:bg-white/5"
         >
           <Settings className="h-4.5 w-4.5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-[#141920] border-white/10 text-slate-200 max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="bg-[#141920] border-white/10 text-slate-200 max-w-lg max-h-[85vh] overflow-y-auto mx-4 md:mx-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold flex items-center gap-2">
             <Settings className="h-5 w-5 text-cyan-400" />

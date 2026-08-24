@@ -140,3 +140,37 @@
     cursor: pointer;
   }
 }
+
+/* Mobile improvements */
+@media (max-width: 767px) {
+  html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    overscroll-behavior: none;
+  }
+  /* Prevent iOS rubber-band overscroll */
+  #root {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+  }
+  /* Bigger touch targets */
+  button, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Disable hover effects on touch */
+  .group:hover .group-hover\:opacity-100 {
+    opacity: 0.7 !important;
+  }
+}
+
+/* Desktop hover enhancements */
+@media (min-width: 768px) {
+  .group:hover .group-hover\:opacity-100 {
+    opacity: 1;
+  }
+}

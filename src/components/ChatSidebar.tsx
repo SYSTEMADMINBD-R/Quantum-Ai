@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Trash2,
   PanelLeftClose,
-  PanelLeft,
   Brain,
   Shield,
   Zap,
@@ -48,26 +47,18 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className="h-9 w-9"
+          className="h-10 w-10"
         >
-          <PanelLeft className="h-4.5 w-4.5" />
+          <Plus className="h-5 w-5" />
         </Button>
         <Separator />
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => createConversation()}
-          className="h-9 w-9"
-        >
-          <Plus className="h-4.5 w-4.5" />
-        </Button>
         <div className="flex flex-col gap-1 mt-2">
           {filteredConversations.slice(0, 10).map((conv) => (
             <button
               key={conv.id}
               onClick={() => selectConversation(conv.id)}
               className={cn(
-                "h-9 w-9 rounded-lg flex items-center justify-center transition-colors",
+                "h-10 w-10 rounded-lg flex items-center justify-center transition-colors",
                 currentConversation?.id === conv.id
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -87,7 +78,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
       initial={{ width: 0, opacity: 0 }}
       animate={{ width: 280, opacity: 1 }}
       exit={{ width: 0, opacity: 0 }}
-      className="flex flex-col border-r border-border/30 bg-muted/20 overflow-hidden"
+      className="flex flex-col border-r border-border/30 bg-background md:bg-muted/20 overflow-hidden h-full"
     >
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border/30">
@@ -99,9 +90,9 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className="h-8 w-8"
+          className="h-10 w-10"
         >
-          <PanelLeftClose className="h-4.5 w-4.5" />
+          <PanelLeftClose className="h-5 w-5" />
         </Button>
       </div>
 
@@ -138,7 +129,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
       <div className="px-3 pb-2">
         <Button
           onClick={() => createConversation()}
-          className="w-full gap-2 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 border border-cyan-500/20 text-cyan-400"
+          className="w-full gap-2 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 hover:from-cyan-500/20 hover:to-blue-500/20 border border-cyan-500/20 text-cyan-400 min-h-[44px]"
           variant="ghost"
         >
           <Plus className="h-4 w-4" />
@@ -165,7 +156,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
                   onMouseEnter={() => setHoveredId(conv.id)}
                   onMouseLeave={() => setHoveredId(null)}
                   className={cn(
-                    "group flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
+                    "group flex w-full items-center gap-2 rounded-lg px-3 py-3 md:py-2.5 text-left text-sm transition-colors min-h-[44px]",
                     currentConversation?.id === conv.id
                       ? "bg-primary/10 text-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -187,7 +178,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
                         e.stopPropagation();
                         deleteConversation(conv.id);
                       }}
-                      className="shrink-0 p-1 hover:bg-destructive/10 rounded text-destructive"
+                      className="shrink-0 p-1.5 hover:bg-destructive/10 rounded text-destructive"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
