@@ -1,69 +1,83 @@
 /// <reference lib="webworker" />
 /**
- * Quantum AI Service Worker v3 — PWA offline caching.
- * Uses resilient per-file caching so one failed URL doesn't kill the install.
+ * Quantum AI Service Worker v4 — Aggressive PWA offline caching.
+ *
+ * Strategy:
+ *  - Install: pre-cache the app shell (index.html, manifest, logo).
+ *  - Fetch: for same-origin requests, use cache-first then network + cache response.
+ *  - Activate: claim clients, then ask them to re-send their loaded resource list.
+ *  - Message: receive resource URLs from the app and re-fetch/cache them.
+ *  - Navigation: network-first with fallback to cached index.html (SPA routing).
  */
 
-const CACHE_NAME = "quantum-ai-v3";
+const CACHE_NAME = "quantum-ai-v4";
 const MODEL_CACHE = "quantum-ai-models";
 
-// Install — cache each file individually so one failure doesn't break everything
+// ── Install ──────────────────────────────────────────────────────
 self.addEventListener("install", (event) => {
   const swEvent = event;
 
-  // We fetch and cache each file individually, catching errors per-file
-  const filesToCache = [
-    "/",
-    "/index.html",
-    "/manifest.webmanifest",
-    "/logo.svg",
-    "/assets/",  // Will be ignored — directory, not a real file
-  ];
+  const filesToCache = ["/", "/index.html", "/manifest.webmanifest", "/logo.svg"];
 
   swEvent.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return Promise.allSettled(
-        filesToCache.map((url) =>
-          fetch(url)
-            .then((response) => {
-              if (response.ok) {
-                return cache.put(url, response);
-              }
-              console.warn("[SW] Failed to cache (bad status):", url, response.status);
-            })
-            .catch((err) => {
-              console.warn("[SW] Failed to cache:", url, err.message);
-            })
-        )
-      );
-    }).then(() => {
-      console.log("[SW] Install complete — cache version:", CACHE_NAME);
-      return self.skipWaiting();
-    })
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => {
+        return Promise.allSettled(
+          filesToCache.map((url) =>
+            fetch(url)
+              .then((response) => {
+                if (response.ok) {
+                  return cache.put(url, response);
+                }
+                console.warn("[SW] Failed to cache (bad status):", url, response.status);
+              })
+              .catch((err) => {
+                console.warn("[SW] Failed to cache:", url, err.message);
+              })
+          )
+        );
+      })
+      .then(() => {
+        console.log("[SW] Install complete — cache version:", CACHE_NAME);
+        return self.skipWaiting();
+      })
   );
 });
 
-// Activate — clean old caches
+// ── Activate ─────────────────────────────────────────────────────
 self.addEventListener("activate", (event) => {
   const swEvent = event;
   swEvent.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME && key !== MODEL_CACHE)
-          .map((key) => {
-            console.log("[SW] Deleting old cache:", key);
-            return caches.delete(key);
-          })
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME && key !== MODEL_CACHE)
+            .map((key) => {
+              console.log("[SW] Deleting old cache:", key);
+              return caches.delete(key);
+            })
+        )
       )
-    ).then(() => {
-      console.log("[SW] Activate complete — claiming clients");
-      return self.clients.claim();
-    })
+      .then(() => {
+        console.log("[SW] Activate complete — claiming clients");
+        return self.clients.claim();
+      })
+      .then(() => {
+        // After activation, ask all clients to re-send their loaded resource list
+        // so we can cache them for offline use.
+        return self.clients.matchAll().then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: "REQUEST_RESOURCES" });
+          });
+        });
+      })
   );
 });
 
-// Fetch strategy
+// ── Fetch strategy ───────────────────────────────────────────────
 self.addEventListener("fetch", (event) => {
   const fetchEvent = event;
   const url = new URL(fetchEvent.request.url);
@@ -107,7 +121,6 @@ self.addEventListener("fetch", (event) => {
     fetchEvent.respondWith(
       fetch(fetchEvent.request)
         .then((response) => {
-          // Network succeeded — cache it and return
           if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -117,13 +130,16 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => {
-          // Network failed — try cache, then fall back to cached index.html
+          // Network failed — try cache, then fall back to cached index.html for SPA
           return caches.match(fetchEvent.request).then((cachedPage) => {
             if (cachedPage) return cachedPage;
             return caches.match("/index.html").then((cachedIndex) => {
-              return cachedIndex || new Response(
-                "<html><body style='background:#0f1219;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;'><div style='text-align:center;'><h1 style='font-size:1.5rem;'>Quantum AI — Offline</h1><p style='opacity:0.6;margin-top:0.5rem;'>Please connect to the internet to load the app for the first time.</p></div></body></html>",
-                { status: 503, headers: { "Content-Type": "text/html" } }
+              return (
+                cachedIndex ||
+                new Response(
+                  "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Quantum AI — Offline</title><style>body{margin:0;background:#0f1219;color:#e5e7eb;display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui,-apple-system,sans-serif}h1{font-size:1.5rem;background:linear-gradient(135deg,#06b6d4,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}p{opacity:0.6;margin-top:0.75rem}</style></head><body><div style='text-align:center'><h1>Quantum AI — Offline</h1><p>Please connect to the internet to load the app for the first time.</p><p style='margin-top:0.5rem;opacity:0.4;font-size:0.875rem'>Once loaded online, Quantum AI will work offline too.</p></div></body></html>",
+                  { status: 503, headers: { "Content-Type": "text/html" } }
+                )
               );
             });
           });
@@ -162,14 +178,15 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
-// Listen for messages from the app
+// ── Messages from the app ────────────────────────────────────────
 self.addEventListener("message", (event) => {
   const msg = event;
   if (msg.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
 
-  // App tells us which resources it loaded — cache them all for offline use
+  // App tells us which resources it loaded — cache them all for offline use.
+  // We re-fetch from network (browser HTTP cache helps here) and store in SW cache.
   if (msg.data?.type === "CACHE_LOADED_RESOURCES" && msg.data.urls) {
     const urls = msg.data.urls;
     console.log("[SW] Caching", urls.length, "loaded resources for offline");
