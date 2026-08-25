@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuantumApp } from "@/hooks/use-quantum-app";
 import { useConnection } from "@/hooks/use-connection";
+import { useAuth } from "@/hooks/use-auth";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { ModeSwitcher } from "@/components/ModeSwitcher";
 import { SettingsDialog } from "@/components/SettingsDialog";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
+import type { MessageAttachment } from "@/types/quantum";
 import {
   Send,
   Square,
@@ -18,7 +20,21 @@ import {
   WifiOff,
   Loader2,
   CheckCircle2,
+  Mic,
+  MicOff,
+  Paperclip,
+  X,
+  Image,
+  FileText,
+  Cloud,
+  CloudOff,
 } from "lucide-react";
+
+// Speech Recognition type
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
 
 export default function ChatApp() {
   const {
@@ -27,15 +43,21 @@ export default function ChatApp() {
     sendMessage,
     stopStreaming,
     offlineModelState,
+    isSyncing,
   } = useQuantumApp();
   const { isOnline } = useConnection();
+  const { isAuthenticated, user } = useAuth();
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [diagResult, setDiagResult] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const messages = currentConversation?.messages ?? [];
   const hasMessages = messages.length > 0;
@@ -54,7 +76,7 @@ export default function ChatApp() {
   }, [currentConversation?.id, isMobile]);
 
   const canSend =
-    (isOnline || offlineModelState.status === "ready") && input.trim().length > 0;
+    (isOnline || offlineModelState.status === "ready") && (input.trim().length > 0 || attachments.length > 0);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -66,13 +88,25 @@ export default function ChatApp() {
     textareaRef.current?.focus();
   }, []);
 
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
+
   const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed || isStreaming) return;
+    if ((!trimmed && attachments.length === 0) || isStreaming) return;
     if (!canSend) return;
+
+    const msgContent = trimmed || (attachments.length > 0 ? `Attached ${attachments.length} file(s)` : "");
     setInput("");
+    setAttachments([]);
     try {
-      await sendMessage(trimmed);
+      await sendMessage(msgContent);
     } catch (error) {
       console.error("Send error:", error);
     }
@@ -85,7 +119,89 @@ export default function ChatApp() {
     }
   };
 
+  // Voice input
+  const toggleVoiceInput = () => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Try Chrome or Edge.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let transcript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setInput((prev) => {
+        // If first result, replace. Otherwise append.
+        if (event.resultIndex === 0) return transcript;
+        const base = prev.endsWith(transcript.slice(0, 10)) ? prev : prev + " ";
+        return base + transcript;
+      });
+    };
+
+    recognition.onerror = (event: any) => {
+      console.warn("Speech recognition error:", event.error);
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  };
+
+  // File attachment
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`${file.name} is too large (max 10MB)`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setAttachments((prev) => [
+          ...prev,
+          {
+            name: file.name,
+            type: file.type,
+            dataUrl,
+            size: file.size,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset input so same file can be re-attached
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const getPlaceholder = () => {
+    if (isRecording) return "Listening…";
     if (!isOnline && offlineModelState.status === "ready") {
       return "Offline — using local AI model";
     }
@@ -128,7 +244,6 @@ export default function ChatApp() {
         <AnimatePresence>
           {mobileMenuOpen && (
             <>
-              {/* Backdrop */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -136,7 +251,6 @@ export default function ChatApp() {
                 className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
                 onClick={() => setMobileMenuOpen(false)}
               />
-              {/* Drawer */}
               <motion.div
                 initial={{ x: -300 }}
                 animate={{ x: 0 }}
@@ -162,7 +276,6 @@ export default function ChatApp() {
         {/* Header */}
         <header className="flex items-center justify-between px-3 md:px-4 py-2 md:py-2.5 border-b border-border/30 bg-background/80 backdrop-blur-md">
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Mobile: hamburger menu */}
             {isMobile ? (
               <Button
                 variant="ghost"
@@ -187,13 +300,24 @@ export default function ChatApp() {
             <ModeSwitcher />
           </div>
           <div className="flex items-center gap-1 md:gap-1.5">
+            {/* Cloud sync indicator */}
+            {isAuthenticated && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground/60 px-1.5">
+                {isSyncing ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-cyan-400" />
+                ) : isOnline ? (
+                  <Cloud className="h-3 w-3 text-cyan-400/60" />
+                ) : (
+                  <CloudOff className="h-3 w-3 text-amber-400/60" />
+                )}
+              </div>
+            )}
             {!isOnline && (
               <div className="flex items-center gap-1.5 text-xs text-amber-400/80 bg-amber-500/8 px-2 py-1.5 rounded-md">
                 <WifiOff className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Offline</span>
               </div>
             )}
-            {/* Check Keys — icon only on mobile */}
             <Button
               variant="ghost"
               size="sm"
@@ -246,7 +370,6 @@ export default function ChatApp() {
                 />
               ))}
 
-              {/* Streaming indicator */}
               {isStreaming &&
                 messages[messages.length - 1]?.role !== "assistant" && (
                   <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
@@ -263,9 +386,58 @@ export default function ChatApp() {
         )}
 
         {/* Input Area */}
-        <div className="border-t border-border/30 bg-background/80 backdrop-blur-md p-2.5 md:p-3">
+        <div className="border-t border-border/40 bg-background/80 backdrop-blur-md p-2.5 md:p-3">
           <div className="max-w-3xl mx-auto">
-            <div className="relative flex items-end gap-2 rounded-xl border border-border/70 bg-muted/20 p-1.5 md:p-2 focus-within:border-primary/50 transition-colors">
+            {/* Attachment previews */}
+            {attachments.length > 0 && (
+              <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
+                {attachments.map((att, i) => (
+                  <div
+                    key={i}
+                    className="relative flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/60 border border-border/40 text-xs shrink-0"
+                  >
+                    {att.type.startsWith("image/") ? (
+                      <Image className="h-4 w-4 text-cyan-400" />
+                    ) : (
+                      <FileText className="h-4 w-4 text-cyan-400" />
+                    )}
+                    <span className="text-foreground/80 max-w-[120px] truncate">
+                      {att.name}
+                    </span>
+                    <span className="text-muted-foreground/50">
+                      {(att.size / 1024).toFixed(0)}KB
+                    </span>
+                    <button
+                      onClick={() => removeAttachment(i)}
+                      className="p-0.5 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="relative flex items-end gap-1.5 md:gap-2 rounded-xl border border-border/60 bg-muted/20 p-1.5 md:p-2 focus-within:border-primary/50 transition-colors">
+              {/* Attach button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-10 w-10 shrink-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                title="Attach file"
+              >
+                <Paperclip className="h-4.5 w-4.5" />
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,.pdf,.txt,.md,.json,.csv,.doc,.docx"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+
               <Textarea
                 ref={textareaRef}
                 value={input}
@@ -276,6 +448,28 @@ export default function ChatApp() {
                 className="flex-1 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[2.75rem] md:min-h-[2.5rem] max-h-32 text-base placeholder:text-muted-foreground/40 py-2"
                 disabled={isStreaming || (!isOnline && offlineModelState.status !== "ready")}
               />
+
+              {/* Voice button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleVoiceInput}
+                disabled={isStreaming}
+                className={`h-10 w-10 shrink-0 rounded-lg transition-colors ${
+                  isRecording
+                    ? "text-red-400 bg-red-500/15 hover:bg-red-500/25 voice-recording"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}
+                title={isRecording ? "Stop recording" : "Voice input"}
+              >
+                {isRecording ? (
+                  <MicOff className="h-4.5 w-4.5" />
+                ) : (
+                  <Mic className="h-4.5 w-4.5" />
+                )}
+              </Button>
+
+              {/* Send / Stop button */}
               {isStreaming ? (
                 <Button
                   onClick={stopStreaming}
@@ -295,14 +489,28 @@ export default function ChatApp() {
                 </Button>
               )}
             </div>
-            <p className="text-[11px] md:text-xs text-muted-foreground/40 text-center mt-1.5 px-2">
-              {!isOnline && offlineModelState.status !== "ready"
-                ? "Go online to download the offline AI model first"
-                : isMobile
-                  ? "Tap send · Return for newline"
-                  : "Enter to send · Shift+Enter for newline"
-              }
-            </p>
+
+            {/* Bottom info */}
+            <div className="flex items-center justify-between mt-1.5 px-1">
+              <p className="text-[11px] md:text-xs text-muted-foreground/40">
+                {!isOnline && offlineModelState.status !== "ready"
+                  ? "Go online to download the offline AI model first"
+                  : isMobile
+                    ? "Tap send · Return for newline"
+                    : "Enter to send · Shift+Enter for newline"
+                }
+              </p>
+              {isAuthenticated && (
+                <p className="text-[11px] md:text-xs text-cyan-400/40 hidden sm:block">
+                  ☁️ Synced across devices
+                </p>
+              )}
+              {!isAuthenticated && (
+                <p className="text-[11px] md:text-xs text-muted-foreground/30 hidden sm:block">
+                  Guest mode · <a href="/auth" className="underline hover:text-muted-foreground/50">Sign in to sync</a>
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

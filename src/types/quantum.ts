@@ -1,5 +1,12 @@
 export type AIMode = "general" | "hacking";
 
+export interface MessageAttachment {
+  name: string;
+  type: string; // MIME type
+  dataUrl: string; // base64 data URL
+  size: number; // bytes
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
@@ -7,6 +14,7 @@ export interface Message {
   mode: AIMode;
   timestamp: number;
   model?: string;
+  attachments?: MessageAttachment[];
 }
 
 export interface Conversation {

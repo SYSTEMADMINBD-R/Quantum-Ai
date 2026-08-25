@@ -82,9 +82,7 @@ export default function Landing() {
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-border/30">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
-            <Zap className="h-4 w-4 text-white" />
-          </div>
+          <img src="/logo.svg" alt="Quantum AI" className="h-8 w-8 rounded-lg" />
           <Link to="/" className="text-sm font-semibold tracking-tight hover:text-cyan-400 transition-colors">
             Quantum AI
           </Link>
@@ -94,7 +92,7 @@ export default function Landing() {
             variant="ghost"
             size="sm"
             onClick={() => navigate("/auth")}
-            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground min-h-[40px]"
           >
             <User className="h-3.5 w-3.5" />
             Sign In
@@ -102,7 +100,7 @@ export default function Landing() {
           <Button
             size="sm"
             onClick={() => navigate("/app")}
-            className="gap-1.5 text-xs bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white"
+            className="gap-1.5 text-xs bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white min-h-[40px]"
           >
             Launch
             <ArrowRight className="h-3 w-3" />
@@ -510,9 +508,7 @@ export default function Landing() {
             viewport={{ once: true }}
             className="space-y-4"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/15 to-blue-500/15 mx-auto">
-              <Code2 className="h-7 w-7 text-cyan-400" />
-            </div>
+            <img src="/logo.svg" alt="Quantum AI" className="h-14 w-14 rounded-2xl mx-auto" />
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
                 Designed & Developed by

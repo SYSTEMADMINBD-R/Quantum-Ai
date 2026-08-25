@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as auth_emailOtp from "../auth/emailOtp.js";
 import type * as chatActions from "../chatActions.js";
+import type * as conversations from "../conversations.js";
 import type * as diagnostics from "../diagnostics.js";
 import type * as http from "../http.js";
 import type * as userSettings from "../userSettings.js";
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   "auth/emailOtp": typeof auth_emailOtp;
   chatActions: typeof chatActions;
+  conversations: typeof conversations;
   diagnostics: typeof diagnostics;
   http: typeof http;
   userSettings: typeof userSettings;

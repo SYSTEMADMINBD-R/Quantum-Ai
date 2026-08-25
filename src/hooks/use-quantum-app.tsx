@@ -13,7 +13,6 @@ import { DEFAULT_SETTINGS } from "@/types/quantum";
 import {
   loadSettings,
   saveSettings,
-  getActiveApiKey,
 } from "@/lib/settings-storage";
 import {
   saveConversation,
@@ -28,7 +27,7 @@ import {
   onOfflineModelStatus,
   preloadOfflineModel,
 } from "@/lib/offline-ai";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 interface QuantumAppState {
@@ -47,6 +46,7 @@ interface QuantumAppState {
   isLoadingConversations: boolean;
   offlineModelState: OfflineModelState;
   isOnline: boolean;
+  isSyncing: boolean;
 }
 
 const QuantumAppContext = createContext<QuantumAppState | null>(null);
@@ -59,6 +59,25 @@ function generateTitle(content: string): string {
   const words = content.split(/\s+/).slice(0, 6);
   const title = words.join(" ");
   return title.length > 40 ? title.slice(0, 40) + "…" : title;
+}
+
+// Convert Convex conversation format to client Conversation type
+function fromCloudConversation(cloud: any): Conversation {
+  return {
+    id: cloud.conversationId,
+    title: cloud.title,
+    messages: cloud.messages.map((m: any) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      mode: m.mode,
+      timestamp: m.timestamp,
+      model: m.model,
+    })),
+    mode: cloud.mode,
+    createdAt: cloud.createdAt,
+    updatedAt: cloud.updatedAt,
+  };
 }
 
 export function QuantumAppProvider({ children }: { children: ReactNode }) {
@@ -78,35 +97,46 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
   }, []);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [offlineModelState, setOfflineModelState] = useState<OfflineModelState>(
     getOfflineModelStatus,
   );
   const { isOnline } = useConnection();
   const abortRef = useRef<AbortController | null>(null);
 
-  // Cloud sync (optional — for users who want to persist settings)
+  // Auth state
   const { isAuthenticated } = useConvexAuth();
+
+  // Cloud sync mutations
+  const saveCloudConv = useMutation(api.conversations.save);
+  const removeCloudConv = useMutation(api.conversations.remove);
+  const bulkSaveCloud = useMutation(api.conversations.bulkSave);
+
+  // Cloud conversations query (only fetches when authenticated)
+  const cloudConversations = useQuery(
+    api.conversations.list,
+    isAuthenticated ? {} : "skip",
+  );
 
   // Refs to avoid stale closures
   const convRef = useRef<Conversation | null>(null);
   const modeRef = useRef<AIMode>(currentMode);
   const settingsRef = useRef<QuantumSettings>(settings);
   const isOnlineRef = useRef<boolean>(isOnline);
-
+  const isAuthenticatedRef = useRef<boolean>(isAuthenticated);
 
   useEffect(() => { convRef.current = currentConversation; }, [currentConversation]);
   useEffect(() => { modeRef.current = currentMode; }, [currentMode]);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   useEffect(() => { isOnlineRef.current = isOnline; }, [isOnline]);
-
-  // No cloud settings sync needed — API keys are server-side via Convex env vars
+  useEffect(() => { isAuthenticatedRef.current = isAuthenticated; }, [isAuthenticated]);
 
   // Subscribe to offline model status changes
   useEffect(() => {
     return onOfflineModelStatus(setOfflineModelState);
   }, []);
 
-  // Pre-load offline model when online (so it's ready when user goes offline)
+  // Pre-load offline model when online
   useEffect(() => {
     if (isOnline && offlineModelState.status === "idle") {
       const timer = setTimeout(() => preloadOfflineModel(), 3000);
@@ -114,12 +144,62 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     }
   }, [isOnline, offlineModelState.status]);
 
+  // Load local conversations on mount
   useEffect(() => {
     getAllConversations()
       .then(setConversations)
       .catch(console.error)
       .finally(() => setIsLoadingConversations(false));
   }, []);
+
+  // Sync: when cloud conversations arrive, merge with local
+  useEffect(() => {
+    if (cloudConversations === undefined) return; // still loading
+    if (cloudConversations === null) return; // not authenticated
+
+    setIsSyncing(true);
+
+    const cloudList = cloudConversations.map(fromCloudConversation);
+
+    setConversations((localConvs) => {
+      // Merge: cloud is source of truth, add any local-only conversations
+      const cloudIds = new Set(cloudList.map((c) => c.id));
+      const localOnly = localConvs.filter((c) => !cloudIds.has(c.id));
+
+      // Save local-only conversations to cloud
+      if (localOnly.length > 0 && isAuthenticatedRef.current) {
+        const toSync = localOnly.map((c) => ({
+          conversationId: c.id,
+          title: c.title,
+          messages: c.messages.map((m) => ({
+            id: m.id,
+            role: m.role as "user" | "assistant",
+            content: m.content,
+            mode: m.mode,
+            timestamp: m.timestamp,
+            model: m.model,
+          })),
+          mode: c.mode,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+        }));
+
+        // Fire-and-forget cloud save
+        bulkSaveCloud({ conversations: toSync }).catch(console.error);
+      }
+
+      // Combined list: cloud + local-only, sorted by updatedAt
+      const merged = [...cloudList, ...localOnly].sort(
+        (a, b) => b.updatedAt - a.updatedAt,
+      );
+
+      // Also save merged list locally
+      merged.forEach((conv) => saveConversation(conv).catch(console.error));
+
+      setIsSyncing(false);
+      return merged;
+    });
+  }, [cloudConversations, bulkSaveCloud]);
 
   const createConversation = useCallback((): Conversation => {
     const conv: Conversation = {
@@ -142,7 +222,6 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
       if (conv) {
         setCurrentConversation(conv);
         convRef.current = conv;
-        // Update mode without clearing conversation
         _setCurrentMode(conv.mode);
       }
       return prev;
@@ -156,7 +235,11 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
       setCurrentConversation(null);
       convRef.current = null;
     }
-  }, []);
+    // Also delete from cloud if authenticated
+    if (isAuthenticatedRef.current) {
+      removeCloudConv({ conversationId: id }).catch(console.error);
+    }
+  }, [removeCloudConv]);
 
   const stopStreaming = useCallback(() => {
     abortRef.current?.abort();
@@ -169,8 +252,6 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
       const currentSettings = settingsRef.current;
       const online = isOnlineRef.current;
 
-      // API keys are now server-side (Convex env vars). No client-side key needed.
-      // Pass a dummy key to indicate we're using the server proxy.
       const apiKey = "server-proxy";
 
       const userMessage: Message = {
@@ -268,7 +349,29 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
                   updatedAt: Date.now(),
                 };
                 convRef.current = finalConv;
+
+                // Save locally
                 saveConversation(finalConv).catch(console.error);
+
+                // Save to cloud if authenticated
+                if (isAuthenticatedRef.current) {
+                  saveCloudConv({
+                    conversationId: finalConv.id,
+                    title: finalConv.title,
+                    messages: finalConv.messages.map((m) => ({
+                      id: m.id,
+                      role: m.role as "user" | "assistant",
+                      content: m.content,
+                      mode: m.mode,
+                      timestamp: m.timestamp,
+                      model: m.model,
+                    })),
+                    mode: finalConv.mode,
+                    createdAt: finalConv.createdAt,
+                    updatedAt: finalConv.updatedAt,
+                  }).catch(console.error);
+                }
+
                 setConversations((p) =>
                   p.map((c) => (c.id === finalConv.id ? finalConv : c)),
                 );
@@ -307,7 +410,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [offlineModelState.status],
+    [offlineModelState.status, saveCloudConv],
   );
 
   const updateSettingsHandler = useCallback(
@@ -334,6 +437,7 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     isLoadingConversations,
     offlineModelState,
     isOnline,
+    isSyncing,
   };
 
   return (

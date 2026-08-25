@@ -1,7 +1,7 @@
 import type { Message } from "@/types/quantum";
 import { MODE_CONFIG } from "@/types/quantum";
 import { cn } from "@/lib/utils";
-import { User, Bot, Copy, Check } from "lucide-react";
+import { User, Bot, Copy, Check, Image, FileText } from "lucide-react";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
@@ -15,6 +15,7 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
   const [isMobile, setIsMobile] = useState(false);
   const isUser = message.role === "user";
   const modeConfig = MODE_CONFIG[message.mode];
+  const hasAttachments = message.attachments && message.attachments.length > 0;
 
   useEffect(() => {
     setIsMobile(window.innerWidth < 768);
@@ -62,9 +63,41 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
           "relative max-w-[85%] md:max-w-[70%] rounded-2xl px-3.5 md:px-5 py-2.5 md:py-3.5 text-[15px] md:text-base leading-relaxed",
           isUser
             ? "bg-primary text-primary-foreground rounded-tr-sm"
-            : "bg-muted/50 text-foreground rounded-tl-sm border border-border/60",
+            : "bg-muted/50 text-foreground rounded-tl-sm border border-border/40",
         )}
       >
+        {/* Attachments */}
+        {hasAttachments && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {message.attachments!.map((att, i) => (
+              <div key={i}>
+                {att.type.startsWith("image/") ? (
+                  <div className="relative group/att">
+                    <img
+                      src={att.dataUrl}
+                      alt={att.name}
+                      className="max-w-[200px] max-h-[150px] rounded-lg border border-border/30 object-cover"
+                    />
+                    <div className="absolute bottom-1 left-1 bg-black/60 text-[10px] text-white px-1.5 py-0.5 rounded">
+                      {att.name}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs">
+                    <FileText className="h-4 w-4 text-cyan-400 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="truncate text-foreground/80">{att.name}</div>
+                      <div className="text-muted-foreground/50 text-[10px]">
+                        {(att.size / 1024).toFixed(0)}KB
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Mode indicator for assistant */}
         {!isUser && (
           <div className="mb-1.5 md:mb-2 flex items-center gap-1.5">
@@ -88,7 +121,7 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
         {/* Message text */}
         <div className="whitespace-pre-wrap break-words">{message.content}</div>
 
-        {/* Copy button — always visible on mobile, hover on desktop */}
+        {/* Copy button */}
         {!isUser && message.content && (
           <button
             onClick={copyToClipboard}

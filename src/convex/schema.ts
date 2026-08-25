@@ -43,6 +43,28 @@ const schema = defineSchema(
         hacking: v.string(),
       }),
     }).index("by_user", ["userId"]),
+
+    // Cloud-synced conversations for signed-in users
+    conversations: defineTable({
+      userId: v.id("users"),
+      conversationId: v.string(), // client-side ID
+      title: v.string(),
+      messages: v.array(
+        v.object({
+          id: v.string(),
+          role: v.union(v.literal("user"), v.literal("assistant")),
+          content: v.string(),
+          mode: v.union(v.literal("general"), v.literal("hacking")),
+          timestamp: v.number(),
+          model: v.optional(v.string()),
+        }),
+      ),
+      mode: v.union(v.literal("general"), v.literal("hacking")),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_and_convId", ["userId", "conversationId"]),
   },
   {
     schemaValidation: false,

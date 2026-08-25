@@ -113,9 +113,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           onClick={() => navigate("/")}
           className="flex items-center gap-2.5 group"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
-            <Zap className="h-4 w-4 text-white" />
-          </div>
+          <img src="/logo.svg" alt="Quantum AI" className="h-8 w-8 rounded-lg" />
           <span className="text-sm font-semibold tracking-tight">
             Quantum AI
           </span>
@@ -188,8 +186,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         disabled={isLoading}
                       >
                         <UserX className="mr-2 h-4 w-4" />
-                        Continue as Guest
-                      </Button>
+                      Continue as Guest
+                    </Button>
+
+                    <p className="text-[11px] text-muted-foreground/50 text-center mt-3">
+                      Guest conversations stay on this device only.
+                      <br />
+                      Sign in to sync across all your devices.
+                    </p>
                     </div>
                   </CardContent>
                 </form>
