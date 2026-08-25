@@ -265,7 +265,7 @@ export default function ChatApp() {
         {/* Input Area */}
         <div className="border-t border-border/30 bg-background/80 backdrop-blur-md p-2.5 md:p-3">
           <div className="max-w-3xl mx-auto">
-            <div className="relative flex items-end gap-2 rounded-xl border border-border/40 bg-muted/20 p-1.5 md:p-2 focus-within:border-primary/40 transition-colors">
+            <div className="relative flex items-end gap-2 rounded-xl border border-border/70 bg-muted/20 p-1.5 md:p-2 focus-within:border-primary/50 transition-colors">
               <Textarea
                 ref={textareaRef}
                 value={input}

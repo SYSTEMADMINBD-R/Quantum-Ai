@@ -62,7 +62,7 @@ export function MessageBubble({ message, isLatest }: MessageBubbleProps) {
           "relative max-w-[85%] md:max-w-[70%] rounded-2xl px-3.5 md:px-5 py-2.5 md:py-3.5 text-[15px] md:text-base leading-relaxed",
           isUser
             ? "bg-primary text-primary-foreground rounded-tr-sm"
-            : "bg-muted/50 text-foreground rounded-tl-sm border border-border/30",
+            : "bg-muted/50 text-foreground rounded-tl-sm border border-border/60",
         )}
       >
         {/* Mode indicator for assistant */}
