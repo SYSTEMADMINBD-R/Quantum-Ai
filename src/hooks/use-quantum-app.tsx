@@ -20,6 +20,7 @@ import {
   deleteConversation as deleteConversationDB,
 } from "@/lib/storage";
 import { streamChat } from "@/lib/chat-service";
+import { EASTER_EGG_COMMANDS } from "@/lib/easter-eggs";
 import { useConnection } from "@/hooks/use-connection";
 import type { OfflineModelState } from "@/lib/offline-ai";
 import {
@@ -245,12 +246,87 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     abortRef.current?.abort();
     setIsStreaming(false);
   }, []);
-
   const sendMessage = useCallback(
     async (content: string) => {
       const mode = modeRef.current;
       const currentSettings = settingsRef.current;
       const online = isOnlineRef.current;
+
+      // Check for hidden Easter egg commands
+      const trimmedLower = content.trim().toLowerCase();
+      if (EASTER_EGG_COMMANDS[trimmedLower]) {
+        const eggMessage: Message = {
+          id: generateId(),
+          role: "user",
+          content,
+          mode,
+          timestamp: Date.now(),
+        };
+
+        let conv = convRef.current;
+        if (!conv) {
+          conv = {
+            id: generateId(),
+            title: generateTitle(content),
+            messages: [eggMessage],
+            mode,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+        } else {
+          conv = {
+            ...conv,
+            messages: [...conv.messages, eggMessage],
+            updatedAt: Date.now(),
+          };
+        }
+
+        const eggResponse: Message = {
+          id: generateId(),
+          role: "assistant",
+          content: EASTER_EGG_COMMANDS[trimmedLower],
+          mode,
+          timestamp: Date.now(),
+        };
+
+        const finalConv = {
+          ...conv,
+          messages: [...conv.messages, eggResponse],
+          updatedAt: Date.now(),
+        };
+
+        setCurrentConversation(finalConv);
+        convRef.current = finalConv;
+        setConversations((prev) => {
+          const idx = prev.findIndex((c) => c.id === finalConv.id);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = finalConv;
+            return updated;
+          }
+          return [finalConv, ...prev];
+        });
+
+        saveConversation(finalConv).catch(console.error);
+        if (isAuthenticatedRef.current) {
+          saveCloudConv({
+            conversationId: finalConv.id,
+            title: finalConv.title,
+            messages: finalConv.messages.map((m) => ({
+              id: m.id,
+              role: m.role as "user" | "assistant",
+              content: m.content,
+              mode: m.mode,
+              timestamp: m.timestamp,
+              model: m.model,
+            })),
+            mode: finalConv.mode,
+            createdAt: finalConv.createdAt,
+            updatedAt: finalConv.updatedAt,
+          }).catch(console.error);
+        }
+        return;
+      }
 
       const apiKey = "server-proxy";
 
