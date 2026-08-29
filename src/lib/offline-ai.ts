@@ -57,9 +57,8 @@ const TOPICS: TopicEntry[] = [
   // ====== IDENTITY ======
   {
     keywords: ["who", "made", "created", "built", "developed", "ragib", "your name", "what are you", "who are you", "quantum ai"],
-    priority: 20,
-    response:
-      "I am **Quantum AI**, made and developed by **RAGIB**. I work both online and offline!\n\nIn offline mode, I use a built-in knowledge engine to answer your questions. I can help with cooking, science, math, geography, coding, everyday life advice, and much more.\n\nFor the most advanced responses, switch to online mode where I'm powered by Gemini (General) or Groq (Hacking).",
+    priority: 20,      response:
+      "I am **Quantum AI**. Every line of code, every system, every feature — designed, coded, and developed entirely by **RAGIB** from the ground up, with minimal AI assistance during development.\n\nI work both online and offline!\n\nIn offline mode, I use a built-in knowledge engine to answer your questions. I can help with cooking, science, math, geography, coding, everyday life advice, and much more.\n\nFor the most advanced responses, switch to online mode where I'm powered by Gemini (General) or Groq (Hacking).",
   },
 
   // ====== LOST / STOLEN WALLET ======

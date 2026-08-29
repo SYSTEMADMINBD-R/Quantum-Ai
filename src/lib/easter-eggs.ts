@@ -11,5 +11,5 @@ const FAHMIDA_RESPONSE = [
 
 export const EASTER_EGG_COMMANDS: Record<string, string> = {
   "/fahmida": FAHMIDA_RESPONSE,
-  "/who made you": "I am Quantum AI, made and developed by RAGIB.",
+  "/who made you": "I am Quantum AI. Every line of code, every system, every feature — designed, coded, and developed entirely by RAGIB from the ground up. Built with minimal AI assistance. Made with passion, built for everyone.",
 };

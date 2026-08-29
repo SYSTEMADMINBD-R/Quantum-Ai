@@ -511,7 +511,7 @@ export default function Landing() {
             <img src="/logo.svg" alt="Quantum AI" className="h-14 w-14 rounded-2xl mx-auto" />
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">
-                Designed & Developed by
+                Designed, Coded & Developed by
               </p>
               <h2 className="text-2xl font-bold">
                 <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
@@ -520,9 +520,10 @@ export default function Landing() {
               </h2>
             </div>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-              Quantum AI was built with a focus on privacy, offline
-              capability, and developer experience. Every feature exists to
-              make AI accessible — with or without an internet connection.
+              Every line of code, every system, every feature — designed, architected, and built by RAGIB from the ground up. Quantum AI was created with a vision to make AI accessible to everyone, with or without an internet connection.
+            </p>
+            <p className="text-[11px] text-muted-foreground/50 italic">
+              With minimal AI assistance during development.
             </p>
             <div className="flex items-center justify-center gap-4 pt-2">
               <span className="text-[11px] text-muted-foreground/60 flex items-center gap-1.5">
@@ -532,7 +533,7 @@ export default function Landing() {
               <span className="h-3 w-px bg-border/40" />
               <span className="text-[11px] text-muted-foreground/60 flex items-center gap-1.5">
                 <Cpu className="h-3 w-3" />
-                Powered by Transformers.js
+                Powered by Gemini & Groq
               </span>
             </div>
           </motion.div>
@@ -542,9 +543,9 @@ export default function Landing() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-border/20 py-5 px-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between text-[11px] text-muted-foreground/60">
-          <span>Quantum AI v1.0 — Made by RAGIB</span>
+          <span>Quantum AI v1.0 — Coded & Developed by <span className="text-cyan-400/70 font-medium">RAGIB</span></span>
           <span>
-            Gemini &times; Groq &times; Transformers.js
+            Gemini &times; Groq
           </span>
         </div>
       </footer>

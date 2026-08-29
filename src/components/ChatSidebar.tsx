@@ -202,7 +202,7 @@ export function ChatSidebar({ collapsed, onToggle }: ChatSidebarProps) {
       <div className="border-t border-border/30 px-3 py-2.5">
         <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
           <Code2 className="h-3.5 w-3.5" />
-          <span>Made by <span className="text-cyan-400/70 font-medium">RAGIB</span></span>
+          <span>Coded & Developed by <span className="text-cyan-400/70 font-medium">RAGIB</span></span>
         </div>
       </div>
     </motion.aside>
