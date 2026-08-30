@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Settings, Download, Cpu, Check, Loader2, AlertCircle } from "lucide-react";
+import { Settings, Download, Cpu, Check, Loader2, AlertCircle, X } from "lucide-react";
 import {
   OFFLINE_MODELS,
   isWebGPUSupported,
@@ -38,6 +38,10 @@ function OfflineModelSection({
   const handleDownload = async (modelId: string) => {
     updateSettings({ ...settings, offlineModelId: modelId });
     await webllmEngine.loadModel(modelId);
+  };
+
+  const handleCancel = () => {
+    webllmEngine.cancel();
   };
 
   return (
@@ -67,25 +71,32 @@ function OfflineModelSection({
           </p>
 
           {/* Download progress */}
-          {(webllmState.status === "downloading" || webllmState.status === "generating") && (
+          {webllmState.status === "downloading" && (
             <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-              <div className="flex items-center gap-2 mb-2">
-                <Loader2 className="h-4 w-4 text-purple-400 animate-spin" />
-                <span className="text-sm text-purple-300">
-                  {webllmState.status === "downloading" ? "Downloading model..." : "Model ready"}
-                </span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 text-purple-400 animate-spin" />
+                  <span className="text-sm text-purple-300">Downloading model...</span>
+                </div>
+                {webllmState.canCancel && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                    onClick={handleCancel}
+                  >
+                    <X className="h-3.5 w-3.5 mr-1" />
+                    Cancel
+                  </Button>
+                )}
               </div>
-              {webllmState.status === "downloading" && (
-                <>
-                  <div className="w-full bg-white/5 rounded-full h-1.5 mb-1">
-                    <div
-                      className="bg-purple-500 h-1.5 rounded-full transition-all duration-300"
-                      style={{ width: `${webllmState.progress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-400">{webllmState.downloadProgress}</p>
-                </>
-              )}
+              <div className="w-full bg-white/5 rounded-full h-1.5 mb-1">
+                <div
+                  className="bg-purple-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${webllmState.progress}%` }}
+                />
+              </div>
+              <p className="text-xs text-slate-400">{webllmState.downloadProgress || "Starting download..."}</p>
             </div>
           )}
 
