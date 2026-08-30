@@ -171,10 +171,7 @@ class WebLLMEngine {
               });
             }
           },
-          appConfig: {
-            cacheBackend: "indexeddb",
-          },
-        } as any,
+        },
       );
 
       this.updateState({
