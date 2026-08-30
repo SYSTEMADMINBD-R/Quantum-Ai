@@ -6,7 +6,7 @@
 
 import type { OfflineModelState } from "@/lib/offline-ai";
 
-// Available models for offline use — ordered by size (smallest first)
+// Available models for offline use — q4f16_1 quantization for best Android compatibility
 export interface OfflineModelOption {
   id: string;
   name: string;
@@ -25,31 +25,31 @@ export const OFFLINE_MODELS: OfflineModelOption[] = [
     params: "1.7B",
   },
   {
-    id: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC",
+    id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
     name: "Qwen2.5 1.5B",
     description: "Multilingual — supports 100+ languages",
-    size: "~1.2 GB",
+    size: "~1.1 GB",
     params: "1.5B",
     recommended: true,
   },
   {
+    id: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+    name: "Llama 3.2 1B",
+    description: "Lightweight — works on most devices",
+    size: "~1.0 GB",
+    params: "1B",
+  },
+  {
     id: "Llama-3.2-3B-Instruct-q4f16_1-MLC",
     name: "Llama 3.2 3B",
-    description: "Best quality — smarter responses",
+    description: "Best quality — needs a good GPU",
     size: "~2.2 GB",
     params: "3B",
   },
-  {
-    id: "Phi-4-mini-instruct-q4f16_1-MLC",
-    name: "Phi-4 Mini",
-    description: "Microsoft's latest — excellent reasoning",
-    size: "~2.4 GB",
-    params: "3.8B",
-  },
 ];
 
-// Default model (best balance of quality and size)
-export const DEFAULT_OFFLINE_MODEL = "Qwen2.5-1.5B-Instruct-q4f32_1-MLC";
+// Default model (best balance of quality and compatibility)
+export const DEFAULT_OFFLINE_MODEL = "Qwen2.5-1.5B-Instruct-q4f16_1-MLC";
 
 // Check if WebGPU is supported in this browser
 export function isWebGPUSupported(): boolean {
@@ -182,11 +182,27 @@ class WebLLMEngine {
       });
     } catch (err: any) {
       console.error("WebLLM load error:", err);
+      const msg = err?.message ?? "Unknown error";
+
+      // Provide helpful error messages for common issues
+      let errorMsg = msg;
+      if (msg.includes("maxComputeWorkgroupStorageSize")) {
+        errorMsg =
+          "Your device's GPU is too limited for AI models. " +
+          "The built-in knowledge base will be used for offline responses. " +
+          "Try a desktop browser like Chrome for full offline AI.";
+      } else if (msg.includes("out of memory") || msg.includes("OOM")) {
+        errorMsg =
+          "Not enough memory to load the AI model. " +
+          "Close other tabs and try a smaller model (SmolLM2 1.7B).";
+      } else if (msg.includes("WebGPU")) {
+        errorMsg =
+          "WebGPU is not available. Use Chrome 113+ or Edge 113+ for offline AI models.";
+      }
+
       this.updateState({
         status: "error",
-        error: err?.message?.includes("WebGPU")
-          ? "WebGPU is not available. Try Chrome 113+ or Edge 113+."
-          : `Failed to load model: ${err?.message ?? "Unknown error"}`,
+        error: `Failed to load model: ${errorMsg}`,
       });
     }
   }

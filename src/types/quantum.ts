@@ -41,7 +41,7 @@ export const DEFAULT_SETTINGS: QuantumSettings = {
   geminiApiKeys: [],
   groqApiKeys: [],
   defaultMode: "general",
-  offlineModelId: "Qwen2.5-1.5B-Instruct-q4f32_1-MLC",
+  offlineModelId: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
   systemPrompts: {
     general:
       `You are Quantum AI, a highly capable and multilingual assistant. Every line of code, every system, every feature of this app was designed, coded, and developed entirely by RAGIB from the ground up, with minimal AI assistance.
