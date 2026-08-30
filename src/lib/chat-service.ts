@@ -2,6 +2,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import type { AIMode, Message } from "@/types/quantum";
 import { streamOfflineChat } from "@/lib/offline-ai";
+import { webllmEngine } from "@/lib/webllm-engine";
 
 interface ChatServiceOptions {
   apiKey: string | null;
@@ -25,7 +26,6 @@ function getConvexClient(): ConvexHttpClient {
 
 /**
  * Diagnostic — check how many API keys are configured in Convex env vars.
- * Returns a status object with counts (no key values exposed).
  */
 export async function checkApiKeys(): Promise<{
   gemini: { count: number; keyPreview: string[] };
@@ -39,7 +39,6 @@ export async function checkApiKeys(): Promise<{
 
 /**
  * Call a Convex action and extract the string result.
- * Handles various return formats the SDK might produce.
  */
 async function callAction(
   client: ConvexHttpClient,
@@ -48,15 +47,11 @@ async function callAction(
 ): Promise<string> {
   const raw = await client.action(actionFn, args);
 
-  // ConvexHttpClient.action() should return the action's return value directly.
-  // But handle edge cases where it might be wrapped.
   if (typeof raw === "string") return raw;
   if (typeof raw === "object" && raw !== null) {
-    // Could be { text: "..." } or similar wrapper
     const obj = raw as Record<string, unknown>;
     if (typeof obj.text === "string") return obj.text;
     if (typeof obj.content === "string") return obj.content;
-    // Last resort: JSON.stringify so we see what it actually is
     console.warn("[Quantum AI] Unexpected action return type:", raw);
     return JSON.stringify(raw);
   }
@@ -64,6 +59,94 @@ async function callAction(
     throw new Error("Action returned empty response — API keys may not be configured in Convex env vars.");
   }
   return String(raw);
+}
+
+/**
+ * Try to stream a response using WebLLM (real LLM in the browser).
+ * Returns true if WebLLM was used successfully, false otherwise.
+ */
+async function tryWebLLMStream(
+  systemPrompt: string,
+  conversationHistory: Message[],
+  callbacks: StreamCallbacks,
+): Promise<boolean> {
+  const state = webllmEngine.getState();
+  if (state.status !== "ready") return false;
+
+  try {
+    const historyForModel = conversationHistory.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    let fullText = "";
+    for await (const chunk of webllmEngine.streamChat(historyForModel, systemPrompt)) {
+      fullText += chunk;
+      callbacks.onChunk(fullText);
+    }
+
+    if (fullText.trim().length > 0) {
+      callbacks.onDone(fullText);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn("[Quantum AI] WebLLM streaming failed, will try fallback:", err);
+    return false;
+  }
+}
+
+/**
+ * Try to get a response using WebLLM (non-streaming fallback).
+ */
+async function tryWebLLMChat(
+  systemPrompt: string,
+  conversationHistory: Message[],
+): Promise<string | null> {
+  const state = webllmEngine.getState();
+  if (state.status !== "ready") return null;
+
+  try {
+    const historyForModel = conversationHistory.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    const reply = await webllmEngine.chat(historyForModel, systemPrompt);
+    return reply.trim().length > 0 ? reply : null;
+  } catch (err) {
+    console.warn("[Quantum AI] WebLLM chat failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Stream offline AI response — tries WebLLM first, then knowledge base.
+ */
+async function streamOfflineResponse(
+  systemPrompt: string,
+  conversationHistory: Message[],
+  callbacks: StreamCallbacks,
+): Promise<string> {
+  // 1. Try WebLLM (real LLM) first
+  const usedWebLLM = await tryWebLLMStream(systemPrompt, conversationHistory, callbacks);
+  if (usedWebLLM) return "";
+
+  // 2. Fall back to knowledge base
+  try {
+    let fullText = "";
+    const generator = streamOfflineChat(systemPrompt, conversationHistory);
+    for await (const chunk of generator) {
+      fullText = chunk;
+      callbacks.onChunk(fullText);
+    }
+    callbacks.onDone(fullText);
+    return fullText;
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error("Offline model error");
+    callbacks.onError(err);
+    throw err;
+  }
 }
 
 // Main streaming chat function — routes through Convex proxy actions
@@ -74,21 +157,9 @@ export async function streamChat(
   const { mode, systemPrompt, conversationHistory, isOnline } = options;
   let fullText = "";
 
-  // If offline, use local offline model
+  // If offline, use local offline model (WebLLM → knowledge base)
   if (!isOnline) {
-    try {
-      const generator = streamOfflineChat(systemPrompt, conversationHistory);
-      for await (const chunk of generator) {
-        fullText = chunk;
-        callbacks.onChunk(fullText);
-      }
-      callbacks.onDone(fullText);
-      return fullText;
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error("Offline model error");
-      callbacks.onError(err);
-      throw err;
-    }
+    return streamOfflineResponse(systemPrompt, conversationHistory, callbacks);
   }
 
   try {
@@ -98,7 +169,6 @@ export async function streamChat(
       content: m.content,
     }));
 
-    // The last message is the current user message; everything before is history
     const currentMessage = conversationHistory[conversationHistory.length - 1]?.content ?? "";
     const historyMessages = historyForApi.slice(0, -1);
 
@@ -139,18 +209,11 @@ export async function streamChat(
       err.name === "TypeError" ||
       err.name === "AbortError";
 
-    // If it's a network error, fall back to offline AI instead of failing
+    // If it's a network error, fall back to offline AI (WebLLM → knowledge base)
     if (isNetworkError) {
       console.warn("[Quantum AI] Online API failed (network error), falling back to offline AI");
       try {
-        fullText = "";
-        const generator = streamOfflineChat(systemPrompt, conversationHistory);
-        for await (const chunk of generator) {
-          fullText = chunk;
-          callbacks.onChunk(fullText);
-        }
-        callbacks.onDone(fullText);
-        return fullText;
+        return await streamOfflineResponse(systemPrompt, conversationHistory, callbacks);
       } catch (offlineError) {
         console.error("[Quantum AI] Offline fallback also failed:", offlineError);
       }
@@ -169,6 +232,11 @@ export async function sendMessage(
   const { mode, systemPrompt, conversationHistory, isOnline } = options;
 
   if (!isOnline) {
+    // Try WebLLM first
+    const webllmReply = await tryWebLLMChat(systemPrompt, conversationHistory);
+    if (webllmReply) return webllmReply;
+
+    // Fall back to knowledge base
     const { sendOfflineMessage } = await import("@/lib/offline-ai");
     return sendOfflineMessage(systemPrompt, conversationHistory);
   }

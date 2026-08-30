@@ -3,7 +3,8 @@
 import { Link } from "react-router";
 import { useQuantumApp } from "@/hooks/use-quantum-app";
 import { MODE_CONFIG } from "@/types/quantum";
-import { Brain, Zap, Wifi, WifiOff, CheckCircle } from "lucide-react";
+import { Brain, Zap, Wifi, WifiOff, CheckCircle, Cpu, Download } from "lucide-react";
+import { isWebGPUSupported, webllmEngine } from "@/lib/webllm-engine";
 
 
 export function WelcomeScreen() {
@@ -68,14 +69,16 @@ export function WelcomeScreen() {
       <div className="mt-6 md:mt-8 p-4 md:p-5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 max-w-md w-full">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
-            <CheckCircle className="h-5 w-5 text-white" />
+            <Cpu className="h-5 w-5 text-white" />
           </div>
           <div>
             <h3 className="text-sm md:text-base font-semibold text-emerald-400">
-              Offline Mode Ready
+              Offline AI Engine
             </h3>
             <p className="text-xs md:text-sm text-slate-400">
-              Built-in AI engine — works instantly without internet or downloads.
+              {isWebGPUSupported()
+                ? "Download a real AI model (Qwen, Llama, Phi) via Settings → runs fully in your browser offline."
+                : "Built-in knowledge base — works instantly. Use Chrome/Edge for real offline AI models."}
             </p>
           </div>
         </div>
@@ -86,10 +89,10 @@ export function WelcomeScreen() {
         {!isOnline && offlineModelState.status !== "ready" ? (
           <div className="flex items-center justify-center gap-2 text-amber-400/80">
             <WifiOff className="h-4 w-4" />
-            <span>Go online to download the offline model first</span>
+            <span>Offline mode active — using built-in knowledge engine</span>
           </div>
         ) : !isOnline && offlineModelState.status === "ready" ? (
-          <p>Offline mode active — responses use the local AI model.</p>
+          <p>Offline mode active — responses use the local AI engine.</p>
         ) : (
           <p>Start typing below — AI is powered by server-side API keys. No setup needed.</p>
         )}
