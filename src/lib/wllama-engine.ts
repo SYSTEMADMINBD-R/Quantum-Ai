@@ -62,14 +62,12 @@ export const DEFAULT_OFFLINE_MODEL = "qwen3-1.7b-q4_k_m";
 
 export function isWllamaSupported(): boolean {
   try {
-    return (
-      typeof WebAssembly !== "undefined" &&
-      typeof SharedArrayBuffer !== "undefined"
-    );
-  } catch {
-    // SharedArrayBuffer may not be available without COOP/COEP headers,
-    // but wllama can fall back to single-thread mode
+    // WebAssembly is the only hard requirement.
+    // SharedArrayBuffer enables multi-threading but wllama auto-falls back to
+    // single-thread mode when it's unavailable (no COOP/COEP headers on Vercel).
     return typeof WebAssembly !== "undefined";
+  } catch {
+    return false;
   }
 }
 
