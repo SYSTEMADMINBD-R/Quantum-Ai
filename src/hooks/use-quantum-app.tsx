@@ -30,6 +30,7 @@ import {
 } from "@/lib/offline-ai";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { wllamaEngine } from "@/lib/wllama-engine";
 
 interface QuantumAppState {
   settings: QuantumSettings;
@@ -137,13 +138,27 @@ export function QuantumAppProvider({ children }: { children: ReactNode }) {
     return onOfflineModelStatus(setOfflineModelState);
   }, []);
 
-  // Pre-load offline model when online
+  // Auto-load cached wllama model on app startup (works online AND offline)
   useEffect(() => {
-    if (isOnline && offlineModelState.status === "idle") {
+    const modelId = settings.offlineModelId;
+    if (modelId && wllamaEngine.getState().status === "idle") {
+      // Load from IndexedDB cache — works offline too, takes 2-5 seconds
+      const timer = setTimeout(() => {
+        wllamaEngine.loadModel(modelId).catch((err) => {
+          console.warn("[Quantum AI] Auto-load cached model failed:", err);
+        });
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [settings.offlineModelId]);
+
+  // Pre-load knowledge base when online (fallback)
+  useEffect(() => {
+    if (isOnline && offlineModelState.status === "idle" && !settings.offlineModelId) {
       const timer = setTimeout(() => preloadOfflineModel(), 3000);
       return () => clearTimeout(timer);
     }
-  }, [isOnline, offlineModelState.status]);
+  }, [isOnline, offlineModelState.status, settings.offlineModelId]);
 
   // Load local conversations on mount
   useEffect(() => {
