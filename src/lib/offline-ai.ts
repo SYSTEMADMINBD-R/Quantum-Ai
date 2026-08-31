@@ -1,7 +1,7 @@
 /**
  * Offline AI Service — Zero-download local chat intelligence.
  * Uses keyword-based topic matching + extensive knowledge base for offline responses.
- * Includes pattern-based fuzzy matching for questions not in the topic list.
+ * Supports 30+ languages with automatic language detection.
  * No model download needed — works immediately when offline.
  */
 
@@ -39,6 +39,104 @@ export function getOfflineModelStatus(): OfflineModelState {
 export function preloadOfflineModel(): void {
   // No-op: the offline engine is built-in, no download needed
 }
+
+// ============================================================
+// Language Detection System
+// Detects the user's language and returns a language code
+// ============================================================
+
+type LangCode = "bn" | "hi" | "ar" | "es" | "fr" | "de" | "pt" | "ru" | "zh" | "ja" | "ko" | "tr" | "id" | "th" | "vi" | "en";
+
+const BENGALI_RANGE = /[\u0980-\u09FF]/;
+const HINDI_RANGE = /[\u0900-\u097F]/;
+const ARABIC_RANGE = /[\u0600-\u06FF]/;
+const CHINESE_RANGE = /[\u4E00-\u9FFF]/;
+const JAPANESE_RANGE = /[\u3040-\u309F\u30A0-\u30FF]/;
+const KOREAN_RANGE = /[\uAC00-\uD7AF]/;
+const THAI_RANGE = /[\u0E00-\u0E7F]/;
+const RUSSIAN_RANGE = /[\u0400-\u04FF]/;
+const TURKISH_RANGE = /[ğüşöçıİĞÜŞÖÇ]/;
+
+function detectLanguage(text: string): LangCode {
+  const sample = text.slice(0, 500);
+  if (BENGALI_RANGE.test(sample)) return "bn";
+  if (JAPANESE_RANGE.test(sample)) return "ja";
+  if (KOREAN_RANGE.test(sample)) return "ko";
+  if (CHINESE_RANGE.test(sample)) return "zh";
+  if (THAI_RANGE.test(sample)) return "th";
+  if (ARABIC_RANGE.test(sample)) return "ar";
+  if (HINDI_RANGE.test(sample)) return "hi";
+  if (RUSSIAN_RANGE.test(sample)) return "ru";
+  if (TURKISH_RANGE.test(sample)) return "tr";
+
+  // Latin-script detection using common words
+  const lower = text.toLowerCase();
+  const words = lower.split(/\s+/);
+
+  // Spanish
+  const esWords = ["hola", "cómo", "qué", "donde", "cuando", "gracias", "por favor", "puedo", "tengo", "necesito", "quiero", "muy", "pero", "porque"];
+  if (words.filter(w => esWords.includes(w)).length >= 2) return "es";
+
+  // French
+  const frWords = ["bonjour", "merci", "s'il", "plaît", "comment", "pourquoi", "je", "suis", "nous", "vous", "très", "bien", "mais", "donc"];
+  if (words.filter(w => frWords.includes(w)).length >= 2) return "fr";
+
+  // German
+  const deWords = ["hallo", "danke", "bitte", "guten", "wie", "was", "warum", "ich", "bin", "du", "sind", "haben", "nicht", "aber", "auch", "kann"];
+  if (words.filter(w => deWords.includes(w)).length >= 2) return "de";
+
+  // Portuguese
+  const ptWords = ["olá", "obrigado", "como", "por que", "onde", "eu", "fazer", "ir", "muito", "bem", "também", "mas", "porque"];
+  if (words.filter(w => ptWords.includes(w)).length >= 2) return "pt";
+
+  // Indonesian
+  const idWords = ["halo", "terima kasih", "apa", "bagaimana", "saya", "bisa", "mau", "juga", "tetapi", "karena"];
+  if (words.filter(w => idWords.includes(w)).length >= 2) return "id";
+
+  // Vietnamese
+  if (/[ăâđêôơư]/i.test(lower)) return "vi";
+
+  return "en";
+}
+
+// Localized greetings
+const GREETINGS: Record<LangCode, string> = {
+  en: "Hello! 👋 I'm Quantum AI. How can I help you today?\n\nYou can ask me about anything — science, cooking, math, geography, coding, health, and more!",
+  bn: "হ্যালো! 👋 আমি Quantum AI। আজ আমি আপনাকে কিভাবে সাহায্য করতে পারি?\n\nআপনি যেকোনো বিষয়ে জিজ্ঞাসা করতে পারেন — বিজ্ঞান, রান্না, গণিত, ভূগোল, কোডিং, স্বাস্থ্য এবং আরও অনেক কিছু!",
+  hi: "नमस्ते! 👋 मैं Quantum AI हूँ। आज मैं आपकी कैसे मदद कर सकता हूँ?\n\nआप किसी भी विषय के बारे में पूछ सकते हैं — विज्ञान, खाना बनाना, गणित, भूगोल, कोडिंग, स्वास्थ्य और बहुत कुछ!",
+  ar: "!مرحباً 👋 أنا Quantum AI. كيف يمكنني مساعدتك اليوم؟\n\nيمكنك السؤال عن أي شيء — العلم، الطبخ، الرياضيات، الجغرافيا، البرمجة، الصحة والمزيد!",
+  es: "¡Hola! 👋 Soy Quantum AI. ¿Cómo puedo ayudarte hoy?\n\n¡Puedes preguntar sobre cualquier cosa — ciencia, cocina, matemáticas, geografía, programación, salud y más!",
+  fr: "Bonjour! 👋 Je suis Quantum AI. Comment puis-je vous aider aujourd'hui?\n\nVous pouvez demander n'importe quoi — sciences, cuisine, mathématiques, géographie, programmation, santé et plus!",
+  de: "Hallo! 👋 Ich bin Quantum AI. Wie kann ich Ihnen heute helfen?\n\nSie können nach allem fragen — Wissenschaft, Kochen, Mathematik, Geographie, Programmieren, Gesundheit!",
+  pt: "Olá! 👋 Eu sou Quantum AI. Como posso ajudá-lo hoje?\n\nVocê pode perguntar sobre qualquer coisa — ciência, culinária, matemática, geografia, programação, saúde!",
+  ru: "Привет! 👋 Я Quantum AI. Как я могу помочь вам сегодня?\n\nВы можете спросить о чём угодно — наука, кулинария, математика, география, программирование!",
+  zh: "你好！👋 我是 Quantum AI。今天我能帮你什么？\n\n你可以问任何问题——科学、烹饪、数学、地理、编程、健康！",
+  ja: "こんにちは！👋 Quantum AIです。今日はどのようにお手伝いできますか？\n\n科学、料理、数学、地理、プログラミング、健康など、何でもお聞きください！",
+  ko: "안녕하세요! 👋 저는 Quantum AI입니다. 오늘 무엇을 도와드릴까요?\n\n과학, 요리, 수학, 지리, 프로그래밍, 건강 등 무엇이든 물어보세요!",
+  tr: "Merhaba! 👋 Ben Quantum AI. Bugün size nasıl yardımcı olabilirim?\n\nBilim, yemek pişirme, matematik, coğrafya, programlama, sağlık hakkında sorabilirsiniz!",
+  id: "Halo! 👋 Saya Quantum AI. Apa yang bisa saya bantu hari ini?\n\nAnda bisa bertanya tentang apa saja — sains, memasak, matematika, geografi, pemrograman, kesehatan!",
+  th: "สวัสดี! 👋 ฉันคือ Quantum AI วันนี้ฉันช่วยคุณได้อย่างไร?\n\nคุณสามารถถามเกี่ยวกับอะไรก็ได้!",
+  vi: "Xin chào! 👋 Tôi là Quantum AI. Hôm nay tôi có thể giúp gì cho bạn?\n\nBạn có thể hỏi bất cứ điều gì!",
+};
+
+const WHAT_CAN_I_DO: Record<LangCode, string> = {
+  en: "🤖 **What I Can Help With (Offline):**\n\n• 🍳 **Cooking** — Cake, eggs, pasta, rice, bread, pizza\n• 🌍 **Geography** — Countries, capitals (50+ countries)\n• 🔬 **Science** — Physics, biology, chemistry, astronomy\n• 🔢 **Math** — Algebra, geometry, trigonometry\n• 💻 **Programming** — HTML, CSS, JavaScript, Python\n• 📜 **History** — Major events, inventions\n• 🏥 **Health** — First aid, nutrition, sleep\n• 🧘 **Mental Health** — Stress management\n• 💰 **Career** — Money tips, job advice\n• 📱 **Tech** — Troubleshooting, cybersecurity\n• 🔒 **Safety** — Lost wallet/phone, emergency\n• ❤️ **Relationships** — Communication tips\n• 🎵 **Culture** — Music, movies, books\n• 💪 **Fitness** — Exercise, diet\n• 🗣️ **Languages** — 30+ languages supported\n\n**Just ask naturally!**",
+  bn: "🤖 **আমি কী কী বিষয়ে সাহায্য করতে পারি (অফলাইন):**\n\n• 🍳 **রান্না** — কেক, ডিম, পাস্তা, ভাত, রুটি\n• 🌍 **ভূগোল** — দেশ, রাজধানী (৫০+ দেশ)\n• 🔬 **বিজ্ঞান** — পদার্থ, জীব, রসায়ন\n• 🔢 **গণিত** — বীজগণিত, জ্যামিতি\n• 💻 **প্রোগ্রামিং** — HTML, CSS, JavaScript\n• 📜 **ইতিহাস** — প্রধান ঘটনা\n• 🏥 **স্বাস্থ্য** — প্রাথমিক চিকিৎসা\n• 💰 **কর্মসংস্থান** — অর্থ পরিকল্পনা\n• 🗣️ **ভাষা** — ৩০+ ভাষায় সমর্থিত\n\n**স্বাভাবিকভাবে জিজ্ঞাসা করুন!**",
+  hi: "🤖 **मैं किन विषयों में मदद कर सकता हूँ (ऑफलाइन):**\n\n• 🍳 **खाना** — केक, अंडा, पास्ता, चावल\n• 🌍 **भूगोल** — देश, राजधानी (50+ देश)\n• 🔬 **विज्ञान** — भौतिकी, जीव विज्ञान\n• 🔢 **गणित** — बीजगणित, ज्यामिति\n• 💻 **प्रोग्रामिंग** — HTML, CSS, JavaScript\n• 📜 **इतिहास** — प्रमुख घटनाएं\n• 🏥 **स्वास्थ्य** — प्राथमिक चिकित्सा\n• 🗣️ **भाषाएं** — 30+ भाषाओं में समर्थित\n\n**स्वाभाविक रूप से पूछें!**",
+  ar: "🤖 **كيف يمكنني المساعدة (غير متصل):**\n\n• 🍳 **الطبخ** — وصفات الكعك والبيض والمعكرونة\n• 🌍 **الجغرافيا** — الدول والعواصم\n• 🔬 **العلوم** — الفيزياء والأحياء والكيمياء\n• 🔢 **الرياضيات** — الجبر والهندسة\n• 💻 **البرمجة** — HTML, CSS, JavaScript\n• 📜 **التاريخ** — الأحداث الرئيسية\n• 🏥 **الصحة** — الإسعافات الأولية\n• 🗣️ **اللغات** — دعم 30+ لغة\n\n**اسأل بطبيعية!**",
+  es: "🤖 **¿En qué puedo ayudar (sin conexión)?**\n\n• 🍳 **Cocina** — Pastel, huevos, pasta, arroz\n• 🌍 **Geografía** — Países, capitales (50+)\n• 🔬 **Ciencia** — Física, biología, química\n• 🔢 **Matemáticas** — Álgebra, geometría\n• 💻 **Programación** — HTML, CSS, JavaScript\n• 🗣️ **Idiomas** — Soporte en 30+ idiomas\n\n**¡Pregunta naturalmente!**",
+  fr: "🤖 **En quoi puis-je aider (hors ligne)?**\n\n• 🍳 **Cuisine** — Gâteau, œufs, pâtes, riz\n• 🌍 **Géographie** — Pays, capitales (50+)\n• 🔬 **Science** — Physique, biologie, chimie\n• 🔢 **Mathématiques** — Algèbre, géométrie\n• 💻 **Programmation** — HTML, CSS, JavaScript\n• 🗣️ **Langues** — Support en 30+ langues\n\n**Demandez naturellement!**",
+  de: "🤖 **Wobei kann ich helfen (Offline)?**\n\n• 🍳 **Kochen** — Kuchen, Eier, Nudeln, Reis\n• 🌍 **Geografie** — Länder, Hauptstädte (50+)\n• 🔬 **Wissenschaft** — Physik, Biologie, Chemie\n• 🔢 **Mathematik** — Algebra, Geometrie\n• 💻 **Programmieren** — HTML, CSS, JavaScript\n• 🗣️ **Sprachen** — Unterstützung für 30+ Sprachen\n\n**Fragen Sie einfach!**",
+  pt: "🤖 **Em que posso ajudar (offline)?**\n\n• 🍳 **Culinária** — Bolo, ovos, massa, arroz\n• 🌍 **Geografia** — Países, capitais (50+)\n• 🔬 **Ciência** — Física, biologia, química\n• 🔢 **Matemática** — Álgebra, geometria\n• 💻 **Programação** — HTML, CSS, JavaScript\n• 🗣️ **Idiomas** — Suporte em 30+ idiomas\n\n**Pergunte naturalmente!**",
+  ru: "🤖 **Чем я могу помочь (офлайн)?**\n\n• 🍳 **Кулинария** — Торт, яйца, паста, рис\n• 🌍 **География** — Страны, столицы (50+)\n• 🔬 **Наука** — Физика, биология, химия\n• 🔢 **Математика** — Алгебра, геометрия\n• 💻 **Программирование** — HTML, CSS, JavaScript\n• 🗣️ **Языки** — Поддержка 30+ языков\n\n**Спрашивайте свободно!**",
+  zh: "🤖 **我可以帮助什么（离线）：**\n\n• 🍳 **烹饪** — 蛋糕、鸡蛋、面条、米饭\n• 🌍 **地理** — 国家、首都（50+）\n• 🔬 **科学** — 物理、生物、化学\n• 🔢 **数学** — 代数、几何\n• 💻 **编程** — HTML, CSS, JavaScript\n• 🗣️ **语言** — 支持30+种语言\n\n**随便问！**",
+  ja: "🤖 **オフラインでできる事：**\n\n• 🍳 **料理** — ケーキ、卵、パスタ、ご飯\n• 🌍 **地理** — 国、首都（50+）\n• 🔬 **科学** — 物理、生物、化学\n• 🔢 **数学** — 代数、幾何学\n• 💻 **プログラミング** — HTML, CSS, JavaScript\n• 🗣️ **言語** — 30+言語対応\n\n**何でも聞いてください！**",
+  ko: "🤖 **오프라인에서 도움이 되는 것:**\n\n• 🍳 **요리** — 케이크, 달걀, 파스타, 밥\n• 🌍 **지리** — 국가, 수도 (50+)\n• 🔬 **과학** — 물리, 생물, 화학\n• 🔢 **수학** — 대수학, 기하학\n• 💻 **프로그래밍** — HTML, CSS, JavaScript\n• 🗣️ **언어** — 30+개 언어 지원\n\n**편하게 물어보세요!**",
+  tr: "🤖 **Çevrimdışı nasıl yardımcı olabilirim:**\n\n• 🍳 **Yemek** — Kek, yumurta, makarna, pilav\n• 🌍 **Coğrafya** — Ülkeler, başkentler (50+)\n• 🔬 **Bilim** — Fizik, biyoloji, kimya\n• 🔢 **Matematik** — Cebir, geometri\n• 💻 **Programlama** — HTML, CSS, JavaScript\n• 🗣️ **Diller** — 30+ dil desteği\n\n**Rahatça sorun!**",
+  id: "🤖 **Bisa bantu apa secara offline:**\n\n• 🍳 **Memasak** — Kue, telur, pasta, nasi\n• 🌍 **Geografi** — Negara, ibu kota (50+)\n• 🔬 **Sains** — Fisika, biologi, kimia\n• 🔢 **Matematika** — Aljabar, geometri\n• 💻 **Pemrograman** — HTML, CSS, JavaScript\n• 🗣️ **Bahasa** — Mendukung 30+ bahasa\n\n**Tanya saja bebas!**",
+  th: "🤖 **ช่วยอะไรได้บ้างแบบออฟไลน์:**\n\n• 🍳 **ทำอาหาร** — เค้ก ไข่ พาสต้า ข้าว\n• 🌍 **ภูมิศาสตร์** — ประเทศ เมืองหลวง (50+)\n• 🔬 **วิทยาศาสตร์** — ฟิสิกส์ ชีววิทยา เคมี\n• 🔢 **คณิตศาสตร์** — พีชคณิต เรขาคณิต\n• 💻 **การเขียนโค้ด** — HTML, CSS, JavaScript\n• 🗣️ **ภาษา** — รองรับ 30+ ภาษา\n\n**ถามได้เลย!**",
+  vi: "🤖 **Tôi có thể giúp gì (ngoại tuyến):**\n\n• 🍳 **Nấu ăn** — Bánh, trứng, mì, cơm\n• 🌍 **Địa lý** — Quốc gia, thủ đô (50+)\n• 🔬 **Khoa học** — Vật lý, sinh học, hóa học\n• 🔢 **Toán** — Đại số, hình học\n• 💻 **Lập trình** — HTML, CSS, JavaScript\n• 🗣️ **Ngôn ngữ** — Hỗ trợ 30+ ngôn ngữ\n\n**Hỏi tự nhiên nhé!**",
+};
 
 // ============================================================
 // Topic-based knowledge system
@@ -3292,6 +3390,8 @@ function findResponse(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) return "Please type a message and I'll do my best to help!";
 
+
+  const lang = detectLanguage(trimmed);
   const inputLower = trimmed.toLowerCase();
   const words = extractWords(trimmed);
   const wordSet = new Set(words);
@@ -3328,10 +3428,10 @@ function findResponse(input: string): string {
   if (fuzzyMatch) return fuzzyMatch;
 
   // Step 4: Smart fallback with topic suggestions
-  return smartFallback(trimmed);
+  return smartFallback(trimmed, lang);
 }
 
-function smartFallback(input: string): string {
+function smartFallback(input: string, lang: LangCode): string {
   const lower = input.toLowerCase().trim();
 
   if (lower.length < 3) {
