@@ -73,22 +73,33 @@ async function tryWllamaStream(
   const state = wllamaEngine.getState();
   if (state.status !== "ready") return false;
 
+  // On CPU without multi-threading, generation can be very slow.
+  // Show a helpful message so the user knows something is happening.
+  callbacks.onChunk("Thinking...");
+
   try {
-    const historyForModel = conversationHistory.map((m) => ({
+    // Only send the last 4 messages to keep context small for the 1.7B model
+    const recentHistory = conversationHistory.slice(-4);
+    const historyForModel = recentHistory.map((m) => ({
       role: m.role,
       content: m.content,
     }));
 
     let fullText = "";
+    let chunkCount = 0;
     for await (const chunk of wllamaEngine.streamChat(historyForModel, systemPrompt)) {
-      fullText += chunk;
+      fullText = chunk;
+      chunkCount++;
       callbacks.onChunk(fullText);
     }
+
+    console.log(`[Quantum AI] Wllama generated ${chunkCount} chunks, ${fullText.length} chars`);
 
     if (fullText.trim().length > 0) {
       callbacks.onDone(fullText);
       return true;
     }
+    console.warn("[Quantum AI] Wllama returned empty response");
     return false;
   } catch (err) {
     console.warn("[Quantum AI] Wllama streaming failed, will try fallback:", err);
@@ -128,11 +139,17 @@ async function streamOfflineResponse(
   conversationHistory: Message[],
   callbacks: StreamCallbacks,
 ): Promise<string> {
-  // 1. Try wllama (real LLM via WASM/CPU) first
-  const usedWllama = await tryWllamaStream(systemPrompt, conversationHistory, callbacks);
-  if (usedWllama) return "";
+  const wllamaReady = wllamaEngine.getState().status === "ready";
+
+  // 1. Try wllama (real LLM via WASM/CPU) if model is loaded
+  if (wllamaReady) {
+    console.log("[Quantum AI] Trying wllama for offline response...");
+    const usedWllama = await tryWllamaStream(systemPrompt, conversationHistory, callbacks);
+    if (usedWllama) return "";
+  }
 
   // 2. Fall back to knowledge base
+  console.log("[Quantum AI] Using knowledge base fallback");
   try {
     let fullText = "";
     const generator = streamOfflineChat(systemPrompt, conversationHistory);

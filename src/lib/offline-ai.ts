@@ -2006,7 +2006,7 @@ def add(a, b):
 **Job Tips:** Tailor resume per job. Practice interview answers. Network (LinkedIn). Follow up after interviews.`,
   },
   {
-    keywords: ["recipe", "cook", "make", "prepare", "kitchen", "food", "dish", "ingredient", "how to"],
+    keywords: ["recipe", "cook", "make", "prepare", "kitchen", "food", "dish", "ingredient", "sandwich", "how to"],
     priority: 7,
     response:
       `🍳 **Cooking Tips & Recipes**
@@ -2019,6 +2019,7 @@ I know many recipes! Try asking specifically:
 • "How to make bread" — simple homemade bread
 • "How to make pizza" — from-scratch pizza
 • "How to cook chicken" — pan-seared + baked methods
+• "How to make sandwich" — classic sandwich recipe
 
 **General Cooking Tips:**
 • Season as you go — taste and adjust
