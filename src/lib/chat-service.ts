@@ -2,7 +2,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import type { AIMode, Message } from "@/types/quantum";
 import { streamOfflineChat } from "@/lib/offline-ai";
-import { webllmEngine } from "@/lib/webllm-engine";
+import { wllamaEngine } from "@/lib/wllama-engine";
 
 interface ChatServiceOptions {
   apiKey: string | null;
@@ -62,15 +62,15 @@ async function callAction(
 }
 
 /**
- * Try to stream a response using WebLLM (real LLM in the browser).
- * Returns true if WebLLM was used successfully, false otherwise.
+ * Try to stream a response using Wllama (real LLM in the browser via CPU/WASM).
+ * Returns true if wllama was used successfully, false otherwise.
  */
-async function tryWebLLMStream(
+async function tryWllamaStream(
   systemPrompt: string,
   conversationHistory: Message[],
   callbacks: StreamCallbacks,
 ): Promise<boolean> {
-  const state = webllmEngine.getState();
+  const state = wllamaEngine.getState();
   if (state.status !== "ready") return false;
 
   try {
@@ -80,7 +80,7 @@ async function tryWebLLMStream(
     }));
 
     let fullText = "";
-    for await (const chunk of webllmEngine.streamChat(historyForModel, systemPrompt)) {
+    for await (const chunk of wllamaEngine.streamChat(historyForModel, systemPrompt)) {
       fullText += chunk;
       callbacks.onChunk(fullText);
     }
@@ -91,19 +91,19 @@ async function tryWebLLMStream(
     }
     return false;
   } catch (err) {
-    console.warn("[Quantum AI] WebLLM streaming failed, will try fallback:", err);
+    console.warn("[Quantum AI] Wllama streaming failed, will try fallback:", err);
     return false;
   }
 }
 
 /**
- * Try to get a response using WebLLM (non-streaming fallback).
+ * Try to get a response using Wllama (non-streaming fallback).
  */
-async function tryWebLLMChat(
+async function tryWllamaChat(
   systemPrompt: string,
   conversationHistory: Message[],
 ): Promise<string | null> {
-  const state = webllmEngine.getState();
+  const state = wllamaEngine.getState();
   if (state.status !== "ready") return null;
 
   try {
@@ -112,25 +112,25 @@ async function tryWebLLMChat(
       content: m.content,
     }));
 
-    const reply = await webllmEngine.chat(historyForModel, systemPrompt);
+    const reply = await wllamaEngine.chat(historyForModel, systemPrompt);
     return reply.trim().length > 0 ? reply : null;
   } catch (err) {
-    console.warn("[Quantum AI] WebLLM chat failed:", err);
+    console.warn("[Quantum AI] Wllama chat failed:", err);
     return null;
   }
 }
 
 /**
- * Stream offline AI response — tries WebLLM first, then knowledge base.
+ * Stream offline AI response — tries wllama first, then knowledge base.
  */
 async function streamOfflineResponse(
   systemPrompt: string,
   conversationHistory: Message[],
   callbacks: StreamCallbacks,
 ): Promise<string> {
-  // 1. Try WebLLM (real LLM) first
-  const usedWebLLM = await tryWebLLMStream(systemPrompt, conversationHistory, callbacks);
-  if (usedWebLLM) return "";
+  // 1. Try wllama (real LLM via WASM/CPU) first
+  const usedWllama = await tryWllamaStream(systemPrompt, conversationHistory, callbacks);
+  if (usedWllama) return "";
 
   // 2. Fall back to knowledge base
   try {
@@ -157,7 +157,7 @@ export async function streamChat(
   const { mode, systemPrompt, conversationHistory, isOnline } = options;
   let fullText = "";
 
-  // If offline, use local offline model (WebLLM → knowledge base)
+  // If offline, use local offline model (wllama → knowledge base)
   if (!isOnline) {
     return streamOfflineResponse(systemPrompt, conversationHistory, callbacks);
   }
@@ -209,7 +209,7 @@ export async function streamChat(
       err.name === "TypeError" ||
       err.name === "AbortError";
 
-    // If it's a network error, fall back to offline AI (WebLLM → knowledge base)
+    // If it's a network error, fall back to offline AI (wllama → knowledge base)
     if (isNetworkError) {
       console.warn("[Quantum AI] Online API failed (network error), falling back to offline AI");
       try {
@@ -232,9 +232,9 @@ export async function sendMessage(
   const { mode, systemPrompt, conversationHistory, isOnline } = options;
 
   if (!isOnline) {
-    // Try WebLLM first
-    const webllmReply = await tryWebLLMChat(systemPrompt, conversationHistory);
-    if (webllmReply) return webllmReply;
+    // Try wllama first
+    const wllamaReply = await tryWllamaChat(systemPrompt, conversationHistory);
+    if (wllamaReply) return wllamaReply;
 
     // Fall back to knowledge base
     const { sendOfflineMessage } = await import("@/lib/offline-ai");

@@ -14,10 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Settings, Download, Cpu, Check, Loader2, AlertCircle, X } from "lucide-react";
 import {
   OFFLINE_MODELS,
-  isWebGPUSupported,
-  webllmEngine,
-  type WebLLMState,
-} from "@/lib/webllm-engine";
+  isWllamaSupported,
+  wllamaEngine,
+  type WllamaState,
+} from "@/lib/wllama-engine";
 
 function OfflineModelSection({
   settings,
@@ -26,22 +26,22 @@ function OfflineModelSection({
   settings: any;
   updateSettings: (s: any) => void;
 }) {
-  const [webgpuSupported] = useState(isWebGPUSupported);
-  const [webllmState, setWebllmState] = useState<WebLLMState>(webllmEngine.getState());
+  const [supported] = useState(isWllamaSupported);
+  const [engineState, setEngineState] = useState<WllamaState>(wllamaEngine.getState());
 
   useEffect(() => {
-    return webllmEngine.subscribe(setWebllmState);
+    return wllamaEngine.subscribe(setEngineState);
   }, []);
 
-  const selectedModel = settings.offlineModelId || "Qwen2.5-1.5B-Instruct-q4f32_1-MLC";
+  const selectedModel = settings.offlineModelId || "qwen3-1.7b-q4_k_m";
 
   const handleDownload = async (modelId: string) => {
     updateSettings({ ...settings, offlineModelId: modelId });
-    await webllmEngine.loadModel(modelId);
+    await wllamaEngine.loadModel(modelId);
   };
 
   const handleCancel = () => {
-    webllmEngine.cancel();
+    wllamaEngine.cancel();
   };
 
   return (
@@ -51,15 +51,15 @@ function OfflineModelSection({
         Offline AI Model
       </h3>
 
-      {!webgpuSupported ? (
+      {!supported ? (
         <div className="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm text-amber-400 font-medium">WebGPU not available</p>
+              <p className="text-sm text-amber-400 font-medium">WebAssembly not available</p>
               <p className="text-xs text-amber-400/70 mt-1">
-                Your browser doesn&apos;t support WebGPU. Offline AI uses a built-in knowledge base instead.
-                Try Chrome 113+ or Edge 113+ for real offline AI models.
+                Your browser doesn&apos;t support WebAssembly. The built-in knowledge base will be used for offline responses.
+                Try Chrome, Firefox, or Edge for real offline AI models.
               </p>
             </div>
           </div>
@@ -67,18 +67,21 @@ function OfflineModelSection({
       ) : (
         <>
           <p className="text-xs text-slate-400">
-            Download a real AI model to use offline. The model runs entirely in your browser — no internet needed after download. Cached across sessions.
+            Download a real AI model to use offline. Runs on your phone&apos;s CPU — no special GPU needed.
+            Works on ANY Android phone with 4GB+ RAM. Download once, use forever.
           </p>
 
           {/* Download progress */}
-          {webllmState.status === "downloading" && (
+          {(engineState.status === "downloading" || engineState.status === "loading") && (
             <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 text-purple-400 animate-spin" />
-                  <span className="text-sm text-purple-300">Downloading model...</span>
+                  <span className="text-sm text-purple-300">
+                    {engineState.status === "downloading" ? "Downloading model..." : "Loading model..."}
+                  </span>
                 </div>
-                {webllmState.canCancel && (
+                {engineState.canCancel && (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -93,17 +96,17 @@ function OfflineModelSection({
               <div className="w-full bg-white/5 rounded-full h-1.5 mb-1">
                 <div
                   className="bg-purple-500 h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: `${webllmState.progress}%` }}
+                  style={{ width: `${engineState.progress}%` }}
                 />
               </div>
-              <p className="text-xs text-slate-400">{webllmState.downloadProgress || "Starting download..."}</p>
+              <p className="text-xs text-slate-400">{engineState.downloadProgress || "Preparing..."}</p>
             </div>
           )}
 
           {/* Error */}
-          {webllmState.status === "error" && webllmState.error && (
+          {engineState.status === "error" && engineState.error && (
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-              <p className="text-sm text-red-400">{webllmState.error}</p>
+              <p className="text-sm text-red-400">{engineState.error}</p>
             </div>
           )}
 
@@ -111,8 +114,8 @@ function OfflineModelSection({
           <div className="space-y-2">
             {OFFLINE_MODELS.map((model) => {
               const isSelected = selectedModel === model.id;
-              const isLoaded = webllmState.status === "ready" && webllmState.modelId === model.id;
-              const isDownloadingThis = webllmState.status === "downloading";
+              const isLoaded = engineState.status === "ready" && engineState.modelId === model.id;
+              const isDownloadingThis = engineState.status === "downloading" || engineState.status === "loading";
 
               return (
                 <div

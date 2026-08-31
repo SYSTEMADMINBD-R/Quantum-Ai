@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { useQuantumApp } from "@/hooks/use-quantum-app";
 import { MODE_CONFIG } from "@/types/quantum";
 import { Brain, Zap, Wifi, WifiOff, CheckCircle, Cpu, Download } from "lucide-react";
-import { isWebGPUSupported, webllmEngine } from "@/lib/webllm-engine";
+import { isWllamaSupported } from "@/lib/wllama-engine";
 
 
 export function WelcomeScreen() {
@@ -76,9 +76,9 @@ export function WelcomeScreen() {
               Offline AI Engine
             </h3>
             <p className="text-xs md:text-sm text-slate-400">
-              {isWebGPUSupported()
-                ? "Download a real AI model (Qwen, Llama, Phi) via Settings → runs fully in your browser offline."
-                : "Built-in knowledge base — works instantly. Use Chrome/Edge for real offline AI models."}
+              {isWllamaSupported()
+                ? "Download a real AI model via Settings → runs on your phone's CPU. Works on ANY Android phone."
+                : "Built-in knowledge base — works instantly. Try Chrome or Firefox for real offline AI models."}
             </p>
           </div>
         </div>
