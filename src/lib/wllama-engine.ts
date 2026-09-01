@@ -366,12 +366,20 @@ class WllamaEngine {
         })),
       ];
 
-      const reply = await this.wllama.createChatCompletion({
+      // Timeout: 90 seconds. On CPU-only mobile, generation can be very slow
+      // but should not hang forever.
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Generation timed out — the model is too slow on this device. Try asking a shorter question.")), 90000);
+      });
+
+      const replyPromise = this.wllama.createChatCompletion({
         messages: fullMessages,
         temperature: 0.7,
-        max_tokens: 1024,
+        max_tokens: 512,
         stream: false,
       });
+
+      const reply = await Promise.race([replyPromise, timeoutPromise]);
 
       return reply.choices?.[0]?.message?.content ?? "";
     } catch (err: any) {

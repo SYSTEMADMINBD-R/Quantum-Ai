@@ -73,10 +73,6 @@ async function tryWllamaStream(
   const state = wllamaEngine.getState();
   if (state.status !== "ready") return false;
 
-  // On CPU without multi-threading, generation can be very slow.
-  // Show a helpful message so the user knows something is happening.
-  callbacks.onChunk("Thinking...");
-
   try {
     // Only send the last 4 messages to keep context small for the 1.7B model
     const recentHistory = conversationHistory.slice(-4);
@@ -85,24 +81,21 @@ async function tryWllamaStream(
       content: m.content,
     }));
 
-    let fullText = "";
-    let chunkCount = 0;
-    for await (const chunk of wllamaEngine.streamChat(historyForModel, systemPrompt)) {
-      fullText = chunk;
-      chunkCount++;
-      callbacks.onChunk(fullText);
-    }
+    // Use non-streaming mode — more reliable on mobile CPU.
+    // Streaming via async generator often hangs on low-end devices.
+    const reply = await wllamaEngine.chat(historyForModel, systemPrompt);
 
-    console.log(`[Quantum AI] Wllama generated ${chunkCount} chunks, ${fullText.length} chars`);
+    console.log(`[Quantum AI] Wllama generated ${reply.length} chars`);
 
-    if (fullText.trim().length > 0) {
-      callbacks.onDone(fullText);
+    if (reply.trim().length > 0) {
+      callbacks.onChunk(reply);
+      callbacks.onDone(reply);
       return true;
     }
     console.warn("[Quantum AI] Wllama returned empty response");
     return false;
   } catch (err) {
-    console.warn("[Quantum AI] Wllama streaming failed, will try fallback:", err);
+    console.warn("[Quantum AI] Wllama failed, will try fallback:", err);
     return false;
   }
 }
@@ -150,6 +143,7 @@ async function streamOfflineResponse(
 
   // 2. Fall back to knowledge base
   console.log("[Quantum AI] Using knowledge base fallback");
+  callbacks.onChunk("Thinking...");
   try {
     let fullText = "";
     const generator = streamOfflineChat(systemPrompt, conversationHistory);
