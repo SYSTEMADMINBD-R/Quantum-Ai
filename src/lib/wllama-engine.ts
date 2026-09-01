@@ -4,7 +4,8 @@
  * Models are cached in IndexedDB — download once, work forever offline.
  */
 
-
+// Static import so the library is bundled into the app (works offline)
+import { Wllama } from "@wllama/wllama/esm/index.js";
 
 export interface OfflineModelOption {
   id: string;
@@ -92,7 +93,7 @@ export interface WllamaState {
 type StateListener = (state: WllamaState) => void;
 
 class WllamaEngine {
-  private wllama: any = null;
+  private wllama: InstanceType<typeof Wllama> | null = null;
   private abortController: AbortController | null = null;
   private state: WllamaState = {
     status: "idle",
@@ -186,9 +187,6 @@ class WllamaEngine {
     model: OfflineModelOption,
   ): Promise<void> {
     try {
-      // Dynamically import wllama from the ESM build
-      const { Wllama } = await import("@wllama/wllama/esm/index.js");
-
       // Provide local WASM binary path
       const pathConfig = { default: "/wllama.wasm" };
 
@@ -366,16 +364,24 @@ class WllamaEngine {
         })),
       ];
 
-      // Timeout: 90 seconds. On CPU-only mobile, generation can be very slow
-      // but should not hang forever.
+      // Timeout: 45 seconds. On CPU-only mobile, generation can be very slow.
+      // 45s is enough for a short reply from a 1B model on mobile.
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Generation timed out — the model is too slow on this device. Try asking a shorter question.")), 90000);
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                "Generation timed out — the model is too slow on this device.",
+              ),
+            ),
+          45000,
+        );
       });
 
       const replyPromise = this.wllama.createChatCompletion({
         messages: fullMessages,
         temperature: 0.7,
-        max_tokens: 512,
+        max_tokens: 256,
         stream: false,
       });
 

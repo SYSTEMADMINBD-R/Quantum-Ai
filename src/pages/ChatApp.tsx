@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
 import type { MessageAttachment } from "@/types/quantum";
+import { OFFLINE_MODELS } from "@/lib/wllama-engine";
 import {
   Send,
   Square,
@@ -43,6 +44,7 @@ export default function ChatApp() {
     sendMessage,
     stopStreaming,
     offlineModelState,
+    settings,
     isSyncing,
   } = useQuantumApp();
   const { isOnline } = useConnection();
@@ -200,10 +202,14 @@ export default function ChatApp() {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Find model name for offline display
+  const activeModel = OFFLINE_MODELS.find((m) => m.id === settings.offlineModelId);
+  const offlineModelName = activeModel?.name ?? null;
+
   const getPlaceholder = () => {
     if (isRecording) return "Listening…";
     if (!isOnline && offlineModelState.status === "ready") {
-      return "Offline — using local AI model";
+      return offlineModelName ? `Offline — ${offlineModelName} active` : "Offline — using local AI model";
     }
     if (!isOnline && offlineModelState.status === "idle") {
       return "Offline — go online first to download the AI model";
@@ -374,7 +380,12 @@ export default function ChatApp() {
                 messages[messages.length - 1]?.role !== "assistant" && (
                   <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Generating response…</span>
+                    <span>
+                      {!isOnline && offlineModelName
+                        ? `${offlineModelName} — generating response…`
+                        : "Generating response…"
+                      }
+                    </span>
                   </div>
                 )}
 
