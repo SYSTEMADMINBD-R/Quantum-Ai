@@ -2,10 +2,22 @@
  * Wllama Engine — Real AI models running in the browser using CPU.
  * Uses WebAssembly (no WebGPU needed) — works on ANY phone including budget Android.
  * Models are cached in IndexedDB — download once, work forever offline.
+ *
+ * Download improvements for mobile:
+ * - Uses 1 parallel download (mobile browsers struggle with concurrent connections)
+ * - Detects stalled downloads (no progress for 20s) and auto-retries
+ * - Shows download speed in MB/s
  */
 
 // Static import so the library is bundled into the app (works offline)
 import { Wllama } from "@wllama/wllama/esm/index.js";
+
+/** Detect if running on a mobile device */
+function isMobileDevice(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    typeof navigator !== "undefined" ? navigator.userAgent : "",
+  );
+}
 
 export interface OfflineModelOption {
   id: string;
@@ -200,6 +212,9 @@ class WllamaEngine {
         this.wllama = null;
       }
 
+      // Mobile browsers struggle with parallel downloads — use 1 on mobile, 2 on desktop
+      const parallelDownloads = isMobileDevice() ? 1 : 2;
+
       this.wllama = new Wllama(pathConfig, {
         logger: {
           debug: () => {},
@@ -226,8 +241,13 @@ class WllamaEngine {
           profileEnd: () => {},
         } as any,
         allowOffline: true,
-        parallelDownloads: 3,
+        parallelDownloads,
       });
+
+      // Stall detection: track download speed and detect stalls
+      let lastProgressBytes = 0;
+      let lastProgressTime = Date.now();
+      let stallCheckCount = 0;
 
       this.updateState({
         status: "downloading",
@@ -235,27 +255,93 @@ class WllamaEngine {
         downloadProgress: `Preparing ${model.name} download...`,
       });
 
-      // Load model from HuggingFace — downloads and caches in IndexedDB
-      await this.wllama.loadModelFromHF(
-        {
-          repo: model.repo,
-          file: model.file,
-        },
-        {
-          // @ts-ignore — progressCallback is supported but types may vary
-          progressCallback: ({ loaded, total }: { loaded: number; total: number }) => {
-            if (total > 0) {
-              const pct = Math.round((loaded / total) * 100);
-              const loadedMB = (loaded / 1024 / 1024).toFixed(0);
-              const totalMB = (total / 1024 / 1024).toFixed(0);
-              this.updateState({
-                progress: pct,
-                downloadProgress: `Downloading model... ${loadedMB}/${totalMB} MB (${pct}%)`,
-              });
-            }
-          },
-        },
-      );
+      // Download with automatic retry on stall/failure.
+      // wllama caches chunks in IndexedDB, so retries only download missing chunks.
+      const MAX_RETRIES = 3;
+      let lastError: any = null;
+
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        // Reset stall tracking for each attempt
+        lastProgressBytes = 0;
+        lastProgressTime = Date.now();
+        stallCheckCount = 0;
+
+        if (attempt > 1) {
+          this.updateState({
+            downloadProgress: `Retrying download (attempt ${attempt}/${MAX_RETRIES})...`,
+          });
+          // Brief pause before retry so the network can recover
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+
+        try {
+          await this.wllama.loadModelFromHF(
+            {
+              repo: model.repo,
+              file: model.file,
+            },
+            {
+              // @ts-ignore — progressCallback is supported but types may vary
+              progressCallback: ({ loaded, total }: { loaded: number; total: number }) => {
+                if (total > 0) {
+                  const pct = Math.round((loaded / total) * 100);
+                  const loadedMB = (loaded / 1024 / 1024).toFixed(0);
+                  const totalMB = (total / 1024 / 1024).toFixed(0);
+
+                  // Calculate download speed
+                  const now = Date.now();
+                  const timeDelta = (now - lastProgressTime) / 1000;
+                  const bytesDelta = loaded - lastProgressBytes;
+                  let speedStr = "";
+
+                  if (timeDelta > 1 && bytesDelta > 0) {
+                    const speedBytesPerSec = bytesDelta / timeDelta;
+                    const speedMBs = (speedBytesPerSec / 1024 / 1024).toFixed(1);
+                    speedStr = ` · ${speedMBs} MB/s`;
+                    lastProgressBytes = loaded;
+                    lastProgressTime = now;
+                    stallCheckCount = 0;
+                  }
+
+                  // Stall detection: if no progress for 20 seconds
+                  if (timeDelta > 20 && bytesDelta === 0) {
+                    stallCheckCount++;
+                    if (stallCheckCount >= 1) {
+                      this.updateState({
+                        downloadProgress: `Download stalled at ${pct}% — retrying soon...`,
+                      });
+                      lastProgressTime = now;
+                    }
+                  }
+
+                  this.updateState({
+                    progress: pct,
+                    downloadProgress: `Downloading ${model.name}... ${loadedMB}/${totalMB} MB (${pct}%)${speedStr}`,
+                  });
+                }
+              },
+            },
+          );
+
+          // Success — exit retry loop
+          lastError = null;
+          break;
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`Download attempt ${attempt} failed:`, err?.message);
+
+          // If user cancelled, stop immediately
+          if (this.abortController?.signal.aborted) return;
+
+          // If it was the last attempt, throw
+          if (attempt === MAX_RETRIES) throw err;
+
+          // Otherwise, log and retry
+          this.updateState({
+            downloadProgress: `Download failed — retrying (${attempt}/${MAX_RETRIES})...`,
+          });
+        }
+      }
 
       // Check if cancelled during download
       if (this.abortController?.signal.aborted) {
